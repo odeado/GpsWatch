@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Ubicacion en tiempo real</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* ===== ICONOS SVG ===== */
+        .icon {
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 6px;
+            fill: currentColor;
+        }
+
+        .icon-title {
+            width: 1.2em;
+            height: 1.2em;
+            fill: #00d4ff;
+        }
+
+        /* ===== LAYOUT RESPONSIVO ===== */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: clamp(10px, 2vw, 20px);
+            gap: clamp(10px, 2vw, 15px);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ===== HEADER ===== */
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            margin-bottom: clamp(5px, 1vw, 10px);
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* ===== GRID RESPONSIVO ===== */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: clamp(10px, 2vw, 15px);
+            flex: 1;
+        }
+
+        @media (min-width: 768px) {
+            .content-grid {
+                grid-template-columns: 320px 1fr;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: rgba(255,255,255,0.08);
+            border-radius: clamp(12px, 2vw, 20px);
+            padding: clamp(12px, 2.5vw, 20px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .card-title {
+            font-size: clamp(0.85rem, 2vw, 1rem);
+            color: #00d4ff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dato { 
+            font-size: clamp(0.9rem, 2.2vw, 1.1rem); 
+            margin: clamp(8px, 1.5vw, 12px) 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .dato b { 
+            color: #00ff88; 
+            font-weight: 600;
+        }
+
+        .dato .label {
+            color: #aaa;
+            font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #estado {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .online { 
+            background: linear-gradient(135deg, #00ff88, #00cc6a); 
+            color: #000; 
+            box-shadow: 0 0 15px rgba(0,255,136,0.4);
+        }
+
+        .offline { 
+            background: linear-gradient(135deg, #ff4444, #cc0000); 
+            color: #fff; 
+        }
+
+        /* ===== MAPA ===== */
+        #mapa {
+            width: 100%;
+            height: clamp(300px, 50vh, 500px);
+            border-radius: clamp(12px, 2vw, 20px);
+            z-index: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        @media (min-width: 768px) {
+            #mapa {
+                height: clamp(400px, 60vh, 600px);
+            }
+        }
+
+        /* ===== PANEL DE ESTADISTICAS EXTRA ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* ===== TIEMPO ===== */
+        .tiempo {
+            text-align: center;
+            color: #888;
+            font-size: clamp(0.75rem, 1.8vw, 0.9rem);
+            margin-top: 5px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* ===== BOTONES DE CONTROL ===== */
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+            font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            background: rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #ccc;
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        /* ===== PIN ANIMADO ===== */
+        .pin-gps {
+            width: 26px;
+            height: 26px;
+            background: #00ff88;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 rgba(0,255,136, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(0,255,136, 0.6); }
+            70%  { box-shadow: 0 0 0 15px rgba(0,255,136, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,255,136, 0); }
+        }
+
+        /* ===== SCROLLBAR PERSONALIZADO ===== */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,212,255,0.3);
+            border-radius: 3px;
+        }
+
+        /* ===== SAFE AREA ===== */
+        @supports (padding: max(0px)) {
+            .app-container {
+                padding-left: max(10px, env(safe-area-inset-left));
+                padding-right: max(10px, env(safe-area-inset-right));
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+            }
+        }
+
+        /* ===== ORIENTACION HORIZONTAL EN CELULAR ===== */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .content-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            #mapa {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG DEFS (iconos reutilizables) -->
+    <svg style="display:none;">
+        <defs>
+            <!-- Ubicacion / Pin -->
+            <symbol id="icon-pin" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </symbol>
+            <!-- Datos / Grafico -->
+            <symbol id="icon-chart" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            </symbol>
+            <!-- Velocidad / Velocimetro -->
+            <symbol id="icon-speed" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+            </symbol>
+            <!-- Montaña / Altitud -->
+            <symbol id="icon-mountain" viewBox="0 0 24 24">
+                <path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"/>
+            </symbol>
+            <!-- Satelite -->
+            <symbol id="icon-satellite" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5zm6-2h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z"/>
+            </symbol>
+            <!-- Bateria -->
+            <symbol id="icon-battery" viewBox="0 0 24 24">
+                <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+            </symbol>
+            <!-- Centrar / Cruz -->
+            <symbol id="icon-center" viewBox="0 0 24 24">
+                <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+            </symbol>
+            <!-- Mapa / Capas -->
+            <symbol id="icon-layers" viewBox="0 0 24 24">
+                <path d="M12 16.54l7.37-5.73L21 9l-9-7-2 1.54L12 4.54 4.63 9.81 3 11l9 7 1.37-1.07L12 16.54zM12 14.46l-7.37-5.73L12 3l7.37 5.73L12 14.46z"/>
+            </symbol>
+            <!-- Reloj -->
+            <symbol id="icon-clock" viewBox="0 0 24 24">
+                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+            </symbol>
+            <!-- Latitud -->
+            <symbol id="icon-lat" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </symbol>
+            <!-- Longitud -->
+            <symbol id="icon-lon" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </symbol>
+            <!-- Precision / Target -->
+            <symbol id="icon-target" viewBox="0 0 24 24">
+                <path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10 10-4.49 10-10S17.51 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3-8c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
+            </symbol>
+            <!-- Estado / Wifi -->
+            <symbol id="icon-wifi" viewBox="0 0 24 24">
+                <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+            </symbol>
+        </defs>
+    </svg>
+
+    <div class="app-container">
+        <h1>
+            <svg class="icon icon-title"><use href="#icon-pin"/></svg>
+            Ubicacion en tiempo real
+        </h1>
+
+        <div class="content-grid">
+            <!-- Panel de datos -->
+            <div>
+                <div class="card">
+                    <div class="card-title">
+                        <svg class="icon"><use href="#icon-chart"/></svg>
+                        Datos GPS
+                    </div>
+                    <div class="dato">
+                        <span class="label">
+                            <svg class="icon"><use href="#icon-lat"/></svg>
+                            Latitud:
+                        </span>
+                        <b id="lat">--</b>
+                    </div>
+                    <div class="dato">
+                        <span class="label">
+                            <svg class="icon"><use href="#icon-lon"/></svg>
+                            Longitud:
+                        </span>
+                        <b id="lon">--</b>
+                    </div>
+                    <div class="dato">
+                        <span class="label">
+                            <svg class="icon"><use href="#icon-target"/></svg>
+                            Precision:
+                        </span>
+                        <b id="prec">--</b> <span style="color:#888;font-size:0.8em;">metros</span>
+                    </div>
+                    <div class="dato">
+                        <span class="label">
+                            <svg class="icon"><use href="#icon-wifi"/></svg>
+                            Estado:
+                        </span>
+                        <span id="estado" class="offline">Desconectado</span>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 10px;">
+                    <div class="card-title">
+                        <svg class="icon"><use href="#icon-chart"/></svg>
+                        Estadisticas
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <svg class="icon" style="width:1.5em;height:1.5em;fill:#00d4ff;"><use href="#icon-speed"/></svg>
+                            <div class="stat-value" id="velocidad">--</div>
+                            <div class="stat-label">km/h</div>
+                        </div>
+                        <div class="stat-item">
+                            <svg class="icon" style="width:1.5em;height:1.5em;fill:#00d4ff;"><use href="#icon-mountain"/></svg>
+                            <div class="stat-value" id="altitud">--</div>
+                            <div class="stat-label">m s.n.m.</div>
+                        </div>
+                        <div class="stat-item">
+                            <svg class="icon" style="width:1.5em;height:1.5em;fill:#00d4ff;"><use href="#icon-satellite"/></svg>
+                            <div class="stat-value" id="satelites">--</div>
+                            <div class="stat-label">Satelites</div>
+                        </div>
+                        <div class="stat-item">
+                            <svg class="icon" style="width:1.5em;height:1.5em;fill:#00d4ff;"><use href="#icon-battery"/></svg>
+                            <div class="stat-value" id="bateria">--</div>
+                            <div class="stat-label">Bateria %</div>
+                        </div>
+                    </div>
+                    <div class="controls">
+                        <button class="btn" onclick="centrarMapa()">
+                            <svg class="icon"><use href="#icon-center"/></svg>
+                            Centrar
+                        </button>
+                        <button class="btn btn-secondary" onclick="cambiarVista()">
+                            <svg class="icon"><use href="#icon-layers"/></svg>
+                            Vista
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tiempo" id="tiempo">
+                    <svg class="icon"><use href="#icon-clock"/></svg>
+                    Ultima actualizacion: --
+                </div>
+            </div>
+
+            <!-- Mapa -->
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div id="mapa"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ===== CONFIGURACION FIREBASE =====
+        const firebaseConfig = {
+            databaseURL: "https://sensorgps-a3027-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ===== MAPA LEAFLET =====
+        const mapa = L.map('mapa', {
+            zoomControl: true,
+            attributionControl: false
+        }).setView([0, 0], 2);
+
+        // Capa base OpenStreetMap
+        const capaBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(mapa);
+
+        // Capa satelital (alternativa)
+        const capaSatelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri',
+            maxZoom: 19
+        });
+
+        let vistaSatelite = false;
+        function cambiarVista() {
+            if (vistaSatelite) {
+                mapa.removeLayer(capaSatelite);
+                capaBase.addTo(mapa);
+            } else {
+                mapa.removeLayer(capaBase);
+                capaSatelite.addTo(mapa);
+            }
+            vistaSatelite = !vistaSatelite;
+        }
+
+        // Icono personalizado
+        const iconoGPS = L.divIcon({
+            className: 'pin-gps',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+        });
+
+        let marcador = null;
+        let circuloPrecision = null;
+        let primeraVez = true;
+        let ultimaPosicion = null;
+
+        function actualizarMapa(lat, lon, precision) {
+            const posicion = [lat, lon];
+            ultimaPosicion = posicion;
+
+            if (!marcador) {
+                marcador = L.marker(posicion, { icon: iconoGPS }).addTo(mapa);
+                circuloPrecision = L.circle(posicion, {
+                    radius: precision || 10,
+                    color: '#00d4ff',
+                    fillColor: '#00d4ff',
+                    fillOpacity: 0.15,
+                    weight: 1
+                }).addTo(mapa);
+            } else {
+                marcador.setLatLng(posicion);
+                circuloPrecision.setLatLng(posicion);
+                circuloPrecision.setRadius(precision || 10);
+            }
+
+            if (primeraVez) {
+                mapa.setView(posicion, 17);
+                primeraVez = false;
+            } else {
+                mapa.panTo(posicion);
+            }
+        }
+
+        function centrarMapa() {
+            if (ultimaPosicion) {
+                mapa.flyTo(ultimaPosicion, 17, { duration: 1 });
+            }
+        }
+
+        function formatearTiempo(timestamp) {
+            if (!timestamp) return '--';
+            const fecha = new Date(timestamp * 1000);
+            return fecha.toLocaleString('es-CL', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // ===== ESCUCHAR DATOS EN TIEMPO REAL =====
+        db.ref('ubicacion').on('value', (snapshot) => {
+            const datos = snapshot.val();
+            if (datos) {
+                document.getElementById('lat').textContent = datos.lat?.toFixed(6) ?? '--';
+                document.getElementById('lon').textContent = datos.lon?.toFixed(6) ?? '--';
+                document.getElementById('prec').textContent = datos.precision?.toFixed(1) ?? '--';
+                document.getElementById('estado').textContent = 'Conectado';
+                document.getElementById('estado').className = 'online';
+
+                document.getElementById('velocidad').textContent = datos.velocidad?.toFixed(1) ?? '--';
+                document.getElementById('altitud').textContent = datos.altitud?.toFixed(0) ?? '--';
+                document.getElementById('satelites').textContent = datos.satelites ?? '--';
+                document.getElementById('bateria').textContent = datos.bateria ?? '--';
+
+                document.getElementById('tiempo').innerHTML = 
+                    '<svg class="icon"><use href="#icon-clock"/></svg> Ultima actualizacion: ' + formatearTiempo(datos.tiempo);
+
+                actualizarMapa(datos.lat, datos.lon, datos.precision);
+            } else {
+                document.getElementById('estado').textContent = 'Desconectado';
+                document.getElementById('estado').className = 'offline';
+            }
+        });
+
+        // ===== RESPONSIVE =====
+        window.addEventListener('resize', () => mapa.invalidateSize());
+        window.addEventListener('load', () => setTimeout(() => mapa.invalidateSize(), 300));
+        window.addEventListener('orientationchange', () => setTimeout(() => mapa.invalidateSize(), 300));
+
+        window.addEventListener('offline', () => {
+            document.getElementById('estado').textContent = 'Sin internet';
+            document.getElementById('estado').className = 'offline';
+        });
+    </script>
+</body>
+</html>

@@ -1182,33 +1182,41 @@
         }
 
         // ===== FIREBASE LISTENER =====
-        function initFirebase() {
-            const ref = db.ref('/');
-
-            ref.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (!data) return;
-
-                Object.keys(data).forEach(id => {
-                    const d = data[id];
-                    if (d && d.lat && d.lon) {
-                        const timestamp = d.timestamp ? new Date(d.timestamp).getTime() : Date.now();
-                        dispositivos[id] = { ...d, timestamp };
-                        actualizarDispositivoEnMapa(id, d);
-
-                        if (id === dispositivoSeleccionado) {
-                            seleccionarDispositivo(id);
-                        }
-
-                        // Agregar al historial cada actualización
-                        agregarHistorial(id, d);
-                    }
-                });
-
-                renderizarDispositivos();
-                actualizarTiempo();
-            });
-        }
+       function initFirebase() {
+    const ref = db.ref('/');
+    
+    ref.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        Object.keys(data).forEach(id => {
+            const d = data[id];
+            if (d && d.lat && d.lon) {
+                // Soportar ambos formatos de timestamp
+                let timestamp;
+                if (d.timestamp) {
+                    timestamp = new Date(d.timestamp).getTime();
+                } else if (d.tiempo) {
+                    timestamp = d.tiempo * 1000; // convertir segundos a ms
+                } else {
+                    timestamp = Date.now();
+                }
+                
+                dispositivos[id] = { ...d, timestamp };
+                actualizarDispositivoEnMapa(id, d);
+                
+                if (id === dispositivoSeleccionado) {
+                    seleccionarDispositivo(id);
+                }
+                
+                agregarHistorial(id, d);
+            }
+        });
+        
+        renderizarDispositivos();
+        actualizarTiempo();
+    });
+}
 
         function actualizarTiempo() {
             const el = document.getElementById('tiempo');

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -660,7 +659,7 @@
             flex-direction: column;
             pointer-events: none;
         }
-        .alerta-zona-banner, .alerta-bateria-banner {
+        .alerta-zona-banner, .alerta-bateria-banner, .alerta-panico-banner {
             pointer-events: auto;
             max-height: 0;
             opacity: 0;
@@ -672,7 +671,7 @@
             backdrop-filter: blur(10px);
             transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.35s ease;
         }
-        .alerta-zona-banner.mostrar, .alerta-bateria-banner.mostrar {
+        .alerta-zona-banner.mostrar, .alerta-bateria-banner.mostrar, .alerta-panico-banner.mostrar {
             max-height: 90px;
             opacity: 1;
             padding: 12px 20px;
@@ -692,12 +691,46 @@
             font-weight: 600;
         }
         .alerta-bateria-banner .alerta-icono { margin-right: 8px; font-size: 1.1rem; }
+
+        /* ===== ALERTA DE PANICO / EMERGENCIA ===== */
+        .alerta-panico-banner {
+            background: rgba(255,0,0,0.3);
+            border-bottom: 2px solid #ff2222;
+            color: #ffffff;
+            font-weight: 800;
+            display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+            animation: parpadeo-panico 1s infinite;
+        }
+        .alerta-panico-banner.mostrar { max-height: 110px; }
+        .alerta-panico-banner .alerta-icono { font-size: 1.3rem; }
+        .alerta-panico-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .alerta-panico-btn:hover { background: rgba(255,255,255,0.3); }
+        @keyframes parpadeo-panico {
+            0%, 100% { background-color: rgba(255,0,0,0.22); }
+            50% { background-color: rgba(255,0,0,0.45); }
+        }
     </style>
 <base target="_blank">
 </head>
 <body>
     <!-- CONTENEDOR DE ALERTAS: apila los banners sin superponerse -->
     <div class="alertas-contenedor">
+        <!-- BANNER DE PANICO / EMERGENCIA (maxima prioridad) -->
+        <div class="alerta-panico-banner" id="alerta-panico-banner">
+            <span class="alerta-icono">🆘</span>
+            <span id="alerta-panico-texto">Emergencia</span>
+            <button class="alerta-panico-btn" onclick="window.reconocerPanico()">Marcar visto</button>
+        </div>
+
         <!-- BANNER DE ALERTA DE ZONA -->
         <div class="alerta-zona-banner" id="alerta-zona-banner">
             <span class="alerta-icono">🏠</span>
@@ -764,6 +797,9 @@
                 </button>
                 <button class="header-btn" onclick="toggleNotificaciones()" id="btn-notificaciones" title="Notificaciones del navegador (funcionan con la pestaña minimizada)">
                     📲
+                </button>
+                <button class="header-btn" onclick="toggleRutasPorCalles()" id="btn-rutas-calles" title="Rutas por calles (si se apaga, muestra linea recta)" style="color: var(--accent-green);">
+                    🛣️
                 </button>
             </div>
         </div>
@@ -1037,6 +1073,10 @@
         }
 
         // ===== VARIABLES =====
+        // Se considera "offline" si no llega nada nuevo en este tiempo.
+        // Debe ser mayor al heartbeat mas lento (Python: 5 min, App: 3 min) + margen de red.
+        const UMBRAL_OFFLINE_MS = 6.5 * 60 * 1000; // 6.5 minutos
+
         let dispositivoSeleccionado = null;
         let sonidoActivado = false;
         let audioCtx = null;
@@ -1086,6 +1126,67 @@
         }
 
         // ===== ACTUALIZAR DISPOSITIVO =====
+        // ===== RUTA POR CALLES (en vez de linea recta entre puntos) =====
+        // Usa el servicio publico y gratuito OSRM para calcular el camino mas
+        // probable por calles entre los puntos GPS reales que tenemos.
+        // OJO: si hay un salto muy grande entre dos puntos (ej: horas sin datos),
+        // esto dibuja UN camino posible por calles, no necesariamente el exacto
+        // que se recorrio, porque no tenemos datos de lo que paso en el medio.
+        let rutasPorCallesActivas = true;
+        const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving/';
+        const rutaCarreteraTimers = {};
+
+        function programarRutaPorCalles(id) {
+            if (!rutasPorCallesActivas) return;
+            if (rutaCarreteraTimers[id]) clearTimeout(rutaCarreteraTimers[id]);
+            rutaCarreteraTimers[id] = setTimeout(() => actualizarRutaPorCalles(id), 2000);
+        }
+
+        async function actualizarRutaPorCalles(id) {
+            const puntos = rutas[id];
+            if (!puntos || puntos.length < 2 || !polylines[id]) return;
+
+            // OSRM tiene limite practico de waypoints por consulta; si hay muchos,
+            // se toma una muestra pareja + siempre el ultimo punto
+            const MAX_PUNTOS = 25;
+            let muestra = puntos;
+            if (puntos.length > MAX_PUNTOS) {
+                const paso = Math.ceil(puntos.length / MAX_PUNTOS);
+                muestra = puntos.filter((_, i) => i % paso === 0);
+                muestra.push(puntos[puntos.length - 1]);
+            }
+
+            const coordsStr = muestra.map(p => `${p[1]},${p[0]}`).join(';'); // OSRM quiere lon,lat
+
+            try {
+                const resp = await fetch(`${OSRM_URL}${coordsStr}?overview=full&geometries=geojson`);
+                const data = await resp.json();
+                if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                    const coordsRuta = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    if (polylines[id]) polylines[id].setLatLngs(coordsRuta);
+                }
+            } catch (e) {
+                console.log(`No se pudo trazar ruta por calles para ${id}, se deja la linea directa`, e);
+                // Fallback silencioso: la linea recta que ya estaba puesta se mantiene visible
+            }
+        }
+
+        function toggleRutasPorCalles() {
+            rutasPorCallesActivas = !rutasPorCallesActivas;
+            const btn = document.getElementById('btn-rutas-calles');
+            if (btn) btn.style.color = rutasPorCallesActivas ? 'var(--accent-green)' : 'var(--text-secondary)';
+            mostrarToast(rutasPorCallesActivas ? 'Rutas por calles activadas' : 'Rutas por calles desactivadas (linea recta)', 'success');
+
+            if (!rutasPorCallesActivas) {
+                // Volver a la linea recta en todas las rutas visibles
+                Object.keys(polylines).forEach(id => {
+                    if (rutas[id]) polylines[id].setLatLngs(rutas[id]);
+                });
+            } else {
+                Object.keys(polylines).forEach(id => programarRutaPorCalles(id));
+            }
+        }
+
         function actualizarDispositivoEnMapa(id, datos) {
             const posicion = [datos.lat, datos.lon];
 
@@ -1101,7 +1202,8 @@
                 marcadores[id].setLatLng(posicion);
                 rutas[id].push(posicion);
                 if (rutas[id].length > 100) rutas[id].shift();
-                polylines[id].setLatLngs(rutas[id]);
+                polylines[id].setLatLngs(rutas[id]); // linea recta inmediata (feedback instantaneo)
+                programarRutaPorCalles(id); // luego se ajusta a las calles reales, si el servicio responde
             }
 
             // Actualizar líneas de distancia
@@ -1353,6 +1455,49 @@
                 banner.classList.remove('mostrar');
             }, 6000);
         }
+
+        // ===== ALERTA DE PANICO / EMERGENCIA (maxima prioridad) =====
+        // A diferencia de zona/bateria, este banner NO se cierra solo:
+        // se queda visible hasta que alguien lo marca como visto,
+        // porque es una emergencia real activada desde el celular.
+        let panicoAlertados = new Set();
+        let idPanicoActual = null;
+
+        function verificarPanico(id, datos) {
+            const config = obtenerConfigDispositivo(id);
+
+            if (datos.panico) {
+                if (!panicoAlertados.has(id)) {
+                    panicoAlertados.add(id);
+                    idPanicoActual = id;
+
+                    mostrarBannerPanico(`${config.emoji} ${config.nombre} activó el BOTÓN DE PÁNICO`);
+                    mostrarToast(`🆘 EMERGENCIA: ${config.nombre}`, 'error');
+                    enviarNotificacionPush('🆘 EMERGENCIA', `${config.nombre} activó el botón de pánico`);
+                    if (sonidoActivado) reproducirSonido('panico');
+                }
+            } else {
+                panicoAlertados.delete(id);
+            }
+        }
+
+        function mostrarBannerPanico(texto) {
+            const banner = document.getElementById('alerta-panico-banner');
+            document.getElementById('alerta-panico-texto').textContent = texto;
+            banner.classList.add('mostrar');
+        }
+
+        window.reconocerPanico = function() {
+            const banner = document.getElementById('alerta-panico-banner');
+            banner.classList.remove('mostrar');
+
+            if (idPanicoActual) {
+                // Limpiar el flag en Firebase para que no vuelva a saltar hasta la proxima vez
+                db.ref(`/dispositivos/${idPanicoActual}/panico`).set(false).catch(e => console.log(e));
+                panicoAlertados.delete(idPanicoActual);
+                idPanicoActual = null;
+            }
+        };
 
         // ===== NOTIFICACIONES PUSH DEL NAVEGADOR =====
         // Funcionan aunque minimices o cambies de pestaña, mientras el navegador
@@ -1847,17 +1992,27 @@
                 osc.frequency.setValueAtTime(330, audioCtx.currentTime + 0.15);
                 osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.3);
                 osc.frequency.setValueAtTime(330, audioCtx.currentTime + 0.45);
+            } else if (tipo === 'panico') {
+                // Sonido de emergencia: alternancia rapida agudo/grave, tipo sirena
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.3);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.4);
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.5);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.6);
             } else {
                 osc.frequency.setValueAtTime(784, audioCtx.currentTime);
                 osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
                 osc.frequency.setValueAtTime(523, audioCtx.currentTime + 0.2);
             }
 
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (tipo === 'bateria' ? 0.6 : 0.4));
+            const duracion = tipo === 'bateria' ? 0.6 : tipo === 'panico' ? 0.9 : 0.4;
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracion);
 
             osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + (tipo === 'bateria' ? 0.6 : 0.4));
+            osc.stop(audioCtx.currentTime + duracion);
         }
 
         // ===== TEMA =====
@@ -1914,7 +2069,7 @@
             ids.forEach(id => {
                 const d = dispositivos[id];
                 const config = obtenerConfigDispositivo(id);
-                const online = d.timestamp && (Date.now() - d.timestamp < 60000);
+                const online = d.timestamp && (Date.now() - d.timestamp < UMBRAL_OFFLINE_MS);
 
                 const item = document.createElement('div');
                 item.className = 'device-item' + (id === dispositivoSeleccionado ? ' activo' : '');
@@ -1948,7 +2103,7 @@
             document.getElementById('satelites').textContent = d.satelites || '--';
             document.getElementById('bateria').textContent = d.bateria || '--';
 
-            const online = d.timestamp && (Date.now() - d.timestamp < 60000);
+            const online = d.timestamp && (Date.now() - d.timestamp < UMBRAL_OFFLINE_MS);
             const estado = document.getElementById('estado');
             estado.className = online ? 'online' : 'offline';
             estado.innerHTML = `<span class="estado-dot"></span>${online ? 'Conectado' : 'Desconectado'}`;
@@ -1992,6 +2147,7 @@
                 guardarPuntoHistorico(id, d, timestamp);
                 guardarPuntoHistoricoFirebase(id, d, timestamp);
                 verificarBateria(id, d);
+                verificarPanico(id, d);
             }
         });
         

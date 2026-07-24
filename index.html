@@ -579,6 +579,48 @@
             line-height: 1.5;
         }
 
+        /* ===== PANEL DE CONTACTOS ===== */
+        .contactos-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .contactos-panel.abierto { max-height: 500px; opacity: 1; margin-top: 12px; }
+        .contacto-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .contacto-item input {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .contacto-item input:focus { border-color: var(--accent-cyan); }
+        .contacto-item .contacto-guardar {
+            background: rgba(0,255,136,0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(0,255,136,0.2);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .contacto-item .contacto-guardar:hover {
+            background: rgba(0,255,136,0.2);
+        }
+        
+
+        
         /* ===== BOTON WHATSAPP ===== */
         .btn-whatsapp {
             background: rgba(0,255,136,0.08); color: var(--accent-green);

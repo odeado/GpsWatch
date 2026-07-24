@@ -1183,7 +1183,7 @@
 
         // ===== FIREBASE LISTENER =====
        function initFirebase() {
-    const ref = db.ref('/');
+    const ref = db.ref('/dispositivos');
     
     ref.on('value', (snapshot) => {
         const data = snapshot.val();

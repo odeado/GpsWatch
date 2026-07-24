@@ -934,28 +934,31 @@
             use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
         }
 
-        function renderizarZonas() {
-            const lista = document.getElementById('zonas-lista');
-            lista.innerHTML = '';
-
-            zonas.forEach((zona, index) => {
-                const div = document.createElement('div');
-                div.className = 'zona-item';
-                div.innerHTML = `
-                    <div class="zona-icono ${zona.tipo === 'casa' ? 'zona-casa' : 'zona-trabajo'}">
-                        ${zona.tipo === 'casa' ? '🏠' : '💼'}
-                    </div>
-                    <div class="zona-info">
-                        <div class="zona-nombre">${zona.nombre}</div>
-                        <div class="zona-distancia" id="zona-dist-${index}">Calculando...</div>
-                    </div>
-                    <button class="copiar-btn" onclick="eliminarZona(${index})" style="margin:0;" title="Eliminar">
-                        <svg class="icon" style="width:0.9em;height:0.9em;"><use href="#icon-trash"/></svg>
-                    </button>
-                `;
-                lista.appendChild(div);
-            });
-        }
+       function renderizarZonas() {
+    const lista = document.getElementById('zonas-lista');
+    lista.innerHTML = '';
+    
+    zonas.forEach((zona, index) => {
+        const div = document.createElement('div');
+        div.className = 'zona-item';
+        div.style.cursor = 'pointer';
+        div.onclick = () => {
+            mapa.setView([zona.lat, zona.lon], 16);
+            editarZona(index);
+        };
+        div.innerHTML = `
+            <div class="zona-icono ${zona.tipo === 'casa' ? 'zona-casa' : 'zona-trabajo'}">
+                ${zona.tipo === 'casa' ? '🏠' : '💼'}
+            </div>
+            <div class="zona-info">
+                <div class="zona-nombre">${zona.nombre}</div>
+                <div class="zona-distancia" id="zona-dist-${index}">Calculando...</div>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.7rem;">${zona.radio}m</div>
+        `;
+        lista.appendChild(div);
+    });
+}
 
         function agregarZona() {
             const nombre = document.getElementById('zona-nombre').value.trim();

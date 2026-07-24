@@ -652,6 +652,24 @@
         }
         .alerta-zona-banner.mostrar { transform: translateY(0); }
         .alerta-zona-banner .alerta-icono { margin-right: 8px; font-size: 1.1rem; }
+
+        /* ===== ALERTA DE BATERIA BAJA ===== */
+        .alerta-bateria-banner {
+            position: fixed; top: 46px; left: 0; right: 0;
+            background: linear-gradient(90deg, rgba(255,68,68,0.25), rgba(255,170,0,0.2));
+            border-bottom: 1px solid rgba(255,68,68,0.4);
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #ff6b6b;
+            z-index: 10000;
+            transform: translateY(-150%);
+            transition: transform 0.4s ease;
+            backdrop-filter: blur(10px);
+            font-weight: 600;
+        }
+        .alerta-bateria-banner.mostrar { transform: translateY(0); }
+        .alerta-bateria-banner .alerta-icono { margin-right: 8px; font-size: 1.1rem; }
     </style>
 <base target="_blank">
 </head>
@@ -660,6 +678,12 @@
     <div class="alerta-zona-banner" id="alerta-zona-banner">
         <span class="alerta-icono">🏠</span>
         <span id="alerta-zona-texto">¡Llegaste a Casa!</span>
+    </div>
+
+    <!-- BANNER DE BATERIA BAJA -->
+    <div class="alerta-bateria-banner" id="alerta-bateria-banner">
+        <span class="alerta-icono">🔋</span>
+        <span id="alerta-bateria-texto">Batería baja</span>
     </div>
 
     <!-- SVG DEFS -->
@@ -712,6 +736,9 @@
                 </button>
                 <button class="header-btn" onclick="toggleSonido()" id="btn-sonido" title="Sonido de alertas">
                     <svg class="icon" style="width:1.2em;height:1.2em;margin:0;"><use href="#icon-bell"/></svg>
+                </button>
+                <button class="header-btn" onclick="toggleNotificaciones()" id="btn-notificaciones" title="Notificaciones del navegador (funcionan con la pestaña minimizada)">
+                    📲
                 </button>
             </div>
         </div>
@@ -1202,6 +1229,7 @@
 
                     mostrarBannerAlerta(`🏠 ${config.nombre} llegó a ${zona.nombre}!`);
                     mostrarToast(`${config.nombre} entró a ${zona.nombre}`, 'success');
+                    enviarNotificacionPush(`🏠 ${config.nombre} llegó`, `Entró a ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('entrada');
                 }
@@ -1213,6 +1241,7 @@
 
                     mostrarBannerAlerta(`🚪 ${config.nombre} salió de ${zona.nombre}`);
                     mostrarToast(`${config.nombre} salió de ${zona.nombre}`, 'warning');
+                    enviarNotificacionPush(`🚪 ${config.nombre} salió`, `Salió de ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('salida');
                 }
@@ -1228,6 +1257,89 @@
             setTimeout(() => {
                 banner.classList.remove('mostrar');
             }, 4000);
+        }
+
+        // ===== ALERTA DE BATERIA BAJA =====
+        let bateriaAlertada = new Set();
+
+        function verificarBateria(id, datos) {
+            const bateria = parseInt(datos.bateria);
+            if (isNaN(bateria)) return;
+
+            const config = AVATARES[id] || AVATARES.default;
+
+            if (bateria <= 20 && !bateriaAlertada.has(id)) {
+                bateriaAlertada.add(id);
+                mostrarBannerBateria(`🔋 ${config.nombre} tiene batería baja (${bateria}%)`);
+                mostrarToast(`${config.nombre}: batería al ${bateria}%`, 'error');
+                enviarNotificacionPush('🔋 Batería baja', `${config.nombre} está al ${bateria}%`);
+                if (sonidoActivado) reproducirSonido('bateria');
+            } else if (bateria > 25 && bateriaAlertada.has(id)) {
+                // Se le da un margen (histeresis) antes de permitir una nueva alerta
+                bateriaAlertada.delete(id);
+            }
+        }
+
+        function mostrarBannerBateria(texto) {
+            const banner = document.getElementById('alerta-bateria-banner');
+            const textoEl = document.getElementById('alerta-bateria-texto');
+            textoEl.textContent = texto;
+            banner.classList.add('mostrar');
+
+            setTimeout(() => {
+                banner.classList.remove('mostrar');
+            }, 6000);
+        }
+
+        // ===== NOTIFICACIONES PUSH DEL NAVEGADOR =====
+        // Funcionan aunque minimices o cambies de pestaña, mientras el navegador
+        // siga abierto en el celular (no funcionan si cierras el navegador del todo).
+        let notificacionesActivadas = localStorage.getItem('notificaciones_activas') === '1';
+
+        function toggleNotificaciones() {
+            if (!('Notification' in window)) {
+                mostrarToast('Tu navegador no soporta notificaciones', 'error');
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                notificacionesActivadas = !notificacionesActivadas;
+                localStorage.setItem('notificaciones_activas', notificacionesActivadas ? '1' : '0');
+                actualizarIconoNotificaciones();
+                mostrarToast(notificacionesActivadas ? 'Notificaciones activadas' : 'Notificaciones desactivadas', 'success');
+            } else if (Notification.permission === 'denied') {
+                mostrarToast('Notificaciones bloqueadas. Habilitalas en los ajustes del navegador', 'error');
+            } else {
+                Notification.requestPermission().then(permiso => {
+                    if (permiso === 'granted') {
+                        notificacionesActivadas = true;
+                        localStorage.setItem('notificaciones_activas', '1');
+                        mostrarToast('Notificaciones activadas', 'success');
+                    } else {
+                        mostrarToast('Permiso de notificaciones denegado', 'warning');
+                    }
+                    actualizarIconoNotificaciones();
+                });
+            }
+        }
+
+        function actualizarIconoNotificaciones() {
+            const btn = document.getElementById('btn-notificaciones');
+            if (btn) btn.style.color = notificacionesActivadas ? 'var(--accent-green)' : 'var(--text-secondary)';
+        }
+
+        function enviarNotificacionPush(titulo, cuerpo) {
+            if (!notificacionesActivadas || !('Notification' in window) || Notification.permission !== 'granted') return;
+            try {
+                const notif = new Notification(titulo, {
+                    body: cuerpo,
+                    tag: titulo + cuerpo,
+                    requireInteraction: false
+                });
+                setTimeout(() => notif.close(), 8000);
+            } catch (e) {
+                console.log('No se pudo mostrar la notificacion', e);
+            }
         }
 
         // ===== HISTORIAL =====
@@ -1259,9 +1371,9 @@
             }
         }
 
-        // ===== GUARDADO DE HISTORIAL DE RUTA (para el reproductor) =====
-        // Se guarda por dispositivo y por dia (YYYY-MM-DD) en localStorage.
-        // Nota: solo se registra mientras este panel esta abierto y recibiendo datos.
+        // ===== GUARDADO DE HISTORIAL DE RUTA (LOCAL + FIREBASE) =====
+        // Local: rapido, funciona sin conexion, pero solo se ve en este navegador.
+        // Firebase: se guarda en la nube, visible desde cualquier dispositivo/PC.
         function guardarPuntoHistorico(id, datos, timestamp) {
             const fecha = new Date(timestamp).toISOString().slice(0, 10);
             const key = `ruta_${id}_${fecha}`;
@@ -1269,7 +1381,6 @@
             try { puntos = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { puntos = []; }
 
             const ultimo = puntos[puntos.length - 1];
-            // Evitar guardar puntos casi identicos en tiempo muy corto
             if (!ultimo || (timestamp - ultimo.t > 4000)) {
                 puntos.push({ lat: datos.lat, lon: datos.lon, t: timestamp, v: datos.velocidad || 0 });
                 if (puntos.length > 5000) puntos.shift();
@@ -1277,15 +1388,65 @@
             }
         }
 
-        function obtenerFechasDisponibles(id) {
-            const fechas = [];
+        function guardarPuntoHistoricoFirebase(id, datos, timestamp) {
+            try {
+                db.ref(`/historial/${id}/${timestamp}`).set({
+                    lat: datos.lat,
+                    lon: datos.lon,
+                    v: datos.velocidad || 0,
+                    bateria: datos.bateria ?? null
+                });
+            } catch (e) {
+                console.log('No se pudo guardar historial en Firebase', e);
+            }
+        }
+
+        // Combina fechas disponibles localmente y en Firebase
+        async function obtenerFechasDisponibles(id) {
+            const fechasSet = new Set();
+
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
-                if (k && k.startsWith(`ruta_${id}_`)) {
-                    fechas.push(k.replace(`ruta_${id}_`, ''));
-                }
+                if (k && k.startsWith(`ruta_${id}_`)) fechasSet.add(k.replace(`ruta_${id}_`, ''));
             }
-            return fechas.sort().reverse();
+
+            try {
+                const snap = await db.ref(`/historial/${id}`).limitToLast(4000).once('value');
+                const data = snap.val();
+                if (data) {
+                    Object.keys(data).forEach(t => {
+                        fechasSet.add(new Date(parseInt(t)).toISOString().slice(0, 10));
+                    });
+                }
+            } catch (e) {
+                console.log('No se pudo leer historial de Firebase', e);
+            }
+
+            return Array.from(fechasSet).sort().reverse();
+        }
+
+        // Trae los puntos de un dia: primero intenta Firebase (visible desde cualquier lugar),
+        // y si no hay datos ahi, usa el respaldo local de este navegador.
+        async function obtenerPuntosDelDia(id, fecha) {
+            try {
+                const inicio = new Date(fecha + 'T00:00:00').getTime();
+                const fin = inicio + 24 * 60 * 60 * 1000;
+                const snap = await db.ref(`/historial/${id}`)
+                    .orderByKey().startAt(String(inicio)).endAt(String(fin))
+                    .once('value');
+                const data = snap.val();
+                if (data) {
+                    return Object.keys(data).sort((a, b) => a - b).map(t => ({
+                        lat: data[t].lat, lon: data[t].lon,
+                        t: parseInt(t), v: data[t].v || 0
+                    }));
+                }
+            } catch (e) {
+                console.log('No se pudo leer Firebase, usando historial local', e);
+            }
+
+            const key = `ruta_${id}_${fecha}`;
+            try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; }
         }
 
         // ===== REPRODUCTOR DE RUTA (como avanzar una pelicula) =====
@@ -1305,7 +1466,7 @@
             if (panel.classList.contains('abierto')) poblarSelectDispositivosReproductor();
         }
 
-        function poblarSelectDispositivosReproductor() {
+        async function poblarSelectDispositivosReproductor() {
             const sel = document.getElementById('reproductor-dispositivo');
             const ids = Object.keys(dispositivos);
 
@@ -1320,18 +1481,20 @@
                 return `<option value="${id}">${config.emoji} ${config.nombre}</option>`;
             }).join('');
 
-            cambiarDispositivoReproductor();
+            await cambiarDispositivoReproductor();
         }
 
-        function cambiarDispositivoReproductor() {
+        async function cambiarDispositivoReproductor() {
             const id = document.getElementById('reproductor-dispositivo').value;
-            const fechas = obtenerFechasDisponibles(id);
             const selFecha = document.getElementById('reproductor-fecha');
+            selFecha.innerHTML = '<option>Cargando...</option>';
+
+            const fechas = await obtenerFechasDisponibles(id);
 
             if (!id || fechas.length === 0) {
                 selFecha.innerHTML = '<option>Sin registros</option>';
                 document.getElementById('reproductor-info').textContent =
-                    'Aun no hay historial guardado para este dispositivo. Se va guardando automaticamente mientras dejes este panel abierto en el navegador.';
+                    'Aun no hay historial para este dispositivo. Se guarda automaticamente (en la nube y en este navegador) a medida que llegan datos.';
                 limpiarReproduccion();
                 return;
             }
@@ -1342,21 +1505,21 @@
                 return `<option value="${f}">${etiqueta}</option>`;
             }).join('');
 
-            cambiarFechaReproductor();
+            await cambiarFechaReproductor();
         }
 
-        function cambiarFechaReproductor() {
+        async function cambiarFechaReproductor() {
             const id = document.getElementById('reproductor-dispositivo').value;
             const fechaSel = document.getElementById('reproductor-fecha').value;
             if (!id || !fechaSel) { limpiarReproduccion(); return; }
 
-            const key = `ruta_${id}_${fechaSel}`;
-            let puntos = [];
-            try { puntos = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { puntos = []; }
+            pausarReproduccion();
+            document.getElementById('reproductor-info').textContent = 'Cargando ruta...';
+
+            const puntos = await obtenerPuntosDelDia(id, fechaSel);
 
             reproductorPuntos = puntos;
             reproductorIndex = 0;
-            pausarReproduccion();
 
             const slider = document.getElementById('reproductor-slider');
             slider.max = Math.max(0, puntos.length - 1);
@@ -1487,7 +1650,7 @@
             const telefono = (config.telefono || '').replace(/\D/g, '');
 
             if (!telefono) {
-                mostrarToast(`Configura el numero de ${config.nombre} en el codigo (AVATARES.telefono)`, 'error');
+                mostrarToast(`Configura el numero de ${config.nombre} en Contactos WhatsApp`, 'error');
                 return;
             }
 
@@ -1536,6 +1699,12 @@
                 osc.frequency.setValueAtTime(523, audioCtx.currentTime); // Do
                 osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1); // Mi
                 osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2); // Sol
+            } else if (tipo === 'bateria') {
+                // Sonido de alerta mas urgente: 3 tonos graves descendentes
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(330, audioCtx.currentTime + 0.15);
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.3);
+                osc.frequency.setValueAtTime(330, audioCtx.currentTime + 0.45);
             } else {
                 osc.frequency.setValueAtTime(784, audioCtx.currentTime);
                 osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
@@ -1543,10 +1712,10 @@
             }
 
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (tipo === 'bateria' ? 0.6 : 0.4));
 
             osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + 0.4);
+            osc.stop(audioCtx.currentTime + (tipo === 'bateria' ? 0.6 : 0.4));
         }
 
         // ===== TEMA =====
@@ -1673,6 +1842,8 @@
                 
                 agregarHistorial(id, d);
                 guardarPuntoHistorico(id, d, timestamp);
+                guardarPuntoHistoricoFirebase(id, d, timestamp);
+                verificarBateria(id, d);
             }
         });
         
@@ -1992,6 +2163,8 @@ function cargarContactosGuardados() {
 }
 cargarContactosGuardados();
 
+// Reflejar el estado guardado del boton de notificaciones al cargar
+actualizarIconoNotificaciones();
 
         console.log('✅ GPS Tracker cargado correctamente');
     </script>

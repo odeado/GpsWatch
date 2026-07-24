@@ -423,6 +423,75 @@
             to { stroke-dashoffset: -12; }
         }
 
+/* ===== POPUP DE CREAR ZONA EN MAPA ===== */
+.zona-popup {
+    position: absolute;
+    background: rgba(10,10,20,0.95);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 16px;
+    padding: 16px;
+    z-index: 1000;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
+    animation: fadeInUp 0.2s ease;
+}
+.zona-popup h4 {
+    color: var(--accent-cyan);
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+}
+.zona-popup input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    outline: none;
+}
+.zona-popup input:focus { border-color: var(--accent-cyan); }
+.zona-popup .popup-coords {
+    font-family: 'SF Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+.zona-popup .popup-btns {
+    display: flex;
+    gap: 8px;
+}
+.zona-popup .popup-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.zona-popup .popup-btn.crear {
+    background: rgba(0,255,136,0.15);
+    color: var(--accent-green);
+    border: 1px solid rgba(0,255,136,0.2);
+}
+.zona-popup .popup-btn.crear:hover {
+    background: rgba(0,255,136,0.25);
+}
+.zona-popup .popup-btn.cancelar {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 4px; }
+
+        
+
         /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }

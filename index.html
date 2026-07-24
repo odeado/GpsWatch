@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -154,10 +155,25 @@
         /* ===== GRID RESPONSIVO ===== */
         .content-grid {
             display: grid; grid-template-columns: 1fr;
+            grid-template-areas: "arriba" "mapa" "abajo";
             gap: clamp(8px, 1.5vw, 12px); flex: 1;
         }
-        @media (min-width: 768px) { .content-grid { grid-template-columns: 350px 1fr; } }
-        @media (min-width: 1024px) { .content-grid { grid-template-columns: 380px 1fr; } }
+        .sidebar-arriba, .sidebar-abajo {
+            display: flex; flex-direction: column;
+            gap: clamp(8px, 1.5vw, 12px);
+        }
+        .sidebar-arriba { grid-area: arriba; }
+        .sidebar-abajo { grid-area: abajo; }
+        .map-card { grid-area: mapa; }
+        @media (min-width: 768px) {
+            .content-grid {
+                grid-template-columns: 350px 1fr;
+                grid-template-areas: "arriba mapa" "abajo mapa";
+            }
+        }
+        @media (min-width: 1024px) {
+            .content-grid { grid-template-columns: 380px 1fr; }
+        }
 
         /* ===== CARDS ===== */
         .card {
@@ -636,54 +652,63 @@
             margin-bottom: 8px; line-height: 1.4;
         }
 
-        /* ===== ALERTAS DE ZONA ===== */
-        .alerta-zona-banner {
+        /* ===== CONTENEDOR DE ALERTAS (evita que se amontonen/superpongan) ===== */
+        .alertas-contenedor {
             position: fixed; top: 0; left: 0; right: 0;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+        .alerta-zona-banner, .alerta-bateria-banner {
+            pointer-events: auto;
+            max-height: 0;
+            opacity: 0;
+            padding: 0 20px;
+            overflow: hidden;
+            text-align: center;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            backdrop-filter: blur(10px);
+            transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.35s ease;
+        }
+        .alerta-zona-banner.mostrar, .alerta-bateria-banner.mostrar {
+            max-height: 90px;
+            opacity: 1;
+            padding: 12px 20px;
+        }
+
+        .alerta-zona-banner {
             background: linear-gradient(90deg, rgba(0,255,136,0.15), rgba(0,212,255,0.15));
             border-bottom: 1px solid rgba(0,255,136,0.3);
-            padding: 10px 20px;
-            text-align: center;
-            font-size: 0.9rem;
             color: var(--accent-green);
-            z-index: 10000;
-            transform: translateY(-100%);
-            transition: transform 0.4s ease;
-            backdrop-filter: blur(10px);
         }
-        .alerta-zona-banner.mostrar { transform: translateY(0); }
         .alerta-zona-banner .alerta-icono { margin-right: 8px; font-size: 1.1rem; }
 
-        /* ===== ALERTA DE BATERIA BAJA ===== */
         .alerta-bateria-banner {
-            position: fixed; top: 46px; left: 0; right: 0;
             background: linear-gradient(90deg, rgba(255,68,68,0.25), rgba(255,170,0,0.2));
             border-bottom: 1px solid rgba(255,68,68,0.4);
-            padding: 10px 20px;
-            text-align: center;
-            font-size: 0.9rem;
             color: #ff6b6b;
-            z-index: 10000;
-            transform: translateY(-150%);
-            transition: transform 0.4s ease;
-            backdrop-filter: blur(10px);
             font-weight: 600;
         }
-        .alerta-bateria-banner.mostrar { transform: translateY(0); }
         .alerta-bateria-banner .alerta-icono { margin-right: 8px; font-size: 1.1rem; }
     </style>
 <base target="_blank">
 </head>
 <body>
-    <!-- BANNER DE ALERTA DE ZONA -->
-    <div class="alerta-zona-banner" id="alerta-zona-banner">
-        <span class="alerta-icono">🏠</span>
-        <span id="alerta-zona-texto">¡Llegaste a Casa!</span>
-    </div>
+    <!-- CONTENEDOR DE ALERTAS: apila los banners sin superponerse -->
+    <div class="alertas-contenedor">
+        <!-- BANNER DE ALERTA DE ZONA -->
+        <div class="alerta-zona-banner" id="alerta-zona-banner">
+            <span class="alerta-icono">🏠</span>
+            <span id="alerta-zona-texto">¡Llegaste a Casa!</span>
+        </div>
 
-    <!-- BANNER DE BATERIA BAJA -->
-    <div class="alerta-bateria-banner" id="alerta-bateria-banner">
-        <span class="alerta-icono">🔋</span>
-        <span id="alerta-bateria-texto">Batería baja</span>
+        <!-- BANNER DE BATERIA BAJA -->
+        <div class="alerta-bateria-banner" id="alerta-bateria-banner">
+            <span class="alerta-icono">🔋</span>
+            <span id="alerta-bateria-texto">Batería baja</span>
+        </div>
     </div>
 
     <!-- SVG DEFS -->
@@ -744,8 +769,8 @@
         </div>
 
         <div class="content-grid">
-            <!-- Panel lateral -->
-            <div class="sidebar">
+            <!-- Panel superior: dispositivos, datos GPS y estadisticas (con WhatsApp) -->
+            <div class="sidebar-arriba">
                 <!-- Lista de dispositivos -->
                 <div class="card">
                     <div class="card-title">
@@ -805,9 +830,17 @@
                         <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">💬 WhatsApp</button>
                     </div>
                 </div>
+            </div>
 
+            <!-- Mapa -->
+            <div class="card map-card" style="padding: 0; overflow: hidden;">
+                <div id="mapa"></div>
+            </div>
+
+            <!-- Panel inferior: zonas, contactos, historial y reproductor de ruta -->
+            <div class="sidebar-abajo">
                 <!-- Zonas (Casa/Trabajo) -->
-                <div class="card" style="margin-top: 10px;">
+                <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleZonas()">
                         <svg class="icon"><use href="#icon-home"/></svg>
                         Zonas (Casa/Trabajo)
@@ -827,10 +860,8 @@
                     </div>
                 </div>
 
-
-
                 <!-- EL PANEL DE CONTACTOS -->
-                <div class="card" style="margin-top: 10px;">
+                <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleContactos()">
                         <svg class="icon"><use href="#icon-bell"/></svg>
                         Contactos WhatsApp
@@ -844,11 +875,8 @@
                     </div>
                 </div>
 
-
-                    
-
                 <!-- Historial -->
-                <div class="card" style="margin-top: 10px;">
+                <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleHistorial()">
                         <svg class="icon"><use href="#icon-history"/></svg>Historial
                         <svg class="icon" id="icon-historial-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
@@ -862,13 +890,18 @@
                 </div>
 
                 <!-- Reproductor de Ruta -->
-                <div class="card" style="margin-top: 10px;">
+                <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleReproductor()">
                         <svg class="icon"><use href="#icon-history"/></svg>Reproducir Ruta
                         <svg class="icon" id="icon-reproductor-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
                     </div>
                     <div class="reproductor-panel" id="reproductor-panel">
                         <select id="reproductor-dispositivo" onchange="cambiarDispositivoReproductor()"></select>
+                        <select id="reproductor-rango" onchange="cambiarRangoReproductor()">
+                            <option value="dia" selected>Día</option>
+                            <option value="semana">Semana</option>
+                            <option value="mes">Mes</option>
+                        </select>
                         <select id="reproductor-fecha" onchange="cambiarFechaReproductor()"></select>
                         <div class="reproductor-controles">
                             <button class="btn-icon" onclick="retroceder()" title="Punto anterior">⏮</button>
@@ -887,11 +920,6 @@
                 </div>
 
                 <div class="tiempo" id="tiempo"><svg class="icon"><use href="#icon-clock"/></svg>Ultima actualizacion: --</div>
-            </div>
-
-            <!-- Mapa -->
-            <div class="card map-card" style="padding: 0; overflow: hidden;">
-                <div id="mapa"></div>
             </div>
         </div>
     </div>
@@ -917,7 +945,40 @@
             'ubicacion': { emoji: '📍', color: '#ff66aa', nombre: 'Principal', telefono: '' },
             'default':   { emoji: '📱', color: '#ff4444', nombre: 'Dispositivo', telefono: '' }
         };
-        // 👉 Escribe el numero con codigo de pais y sin espacios, ej: '56912345678'
+        // 👉 La lista de arriba es opcional (solo para poner nombres/colores bonitos a IDs conocidos).
+        // Cualquier dispositivo NUEVO que se conecte (con el nombre que sea, sin limite) recibe
+        // automaticamente su propio emoji/color/nombre gracias a obtenerConfigDispositivo().
+
+        const EMOJIS_AUTO = ['🧑', '👩', '👨', '🧔', '👧', '👦', '🐱', '🐶', '🦊', '🐻', '🚗', '🛵', '🚲', '⭐', '🔥', '⚡', '🎯', '🦋', '🐼', '🐨'];
+        const COLORES_AUTO = ['#00ff88', '#00d4ff', '#aa66ff', '#ffaa00', '#ff66aa', '#ff4444', '#55eecc', '#ffee55', '#88aaff', '#ff8866'];
+
+        function hashTexto(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        // Devuelve la config (emoji/color/nombre/telefono) de un dispositivo.
+        // Si el id no esta en AVATARES, se genera una automatica y se guarda
+        // para que sea siempre la misma durante la sesion.
+        function obtenerConfigDispositivo(id) {
+            if (!AVATARES[id]) {
+                const h = hashTexto(id);
+                const emoji = EMOJIS_AUTO[h % EMOJIS_AUTO.length];
+                const color = COLORES_AUTO[h % COLORES_AUTO.length];
+                const nombre = id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                AVATARES[id] = { emoji, color, nombre, telefono: '' };
+            }
+
+            // Cargar telefono guardado en este navegador, si existe
+            const guardado = localStorage.getItem('contacto_' + id);
+            if (guardado && !AVATARES[id].telefono) AVATARES[id].telefono = guardado;
+
+            return AVATARES[id];
+        }
 
         // ===== MAPA =====
         const mapa = L.map('mapa', {
@@ -990,7 +1051,7 @@
 
         // ===== CREAR AVATAR EN MAPA =====
         function crearAvatar(id, datos) {
-            const config = AVATARES[id] || AVATARES.default;
+            const config = obtenerConfigDispositivo(id);
             const color = config.color;
 
             const icon = L.divIcon({
@@ -1032,7 +1093,7 @@
                 marcadores[id] = crearAvatar(id, datos);
                 rutas[id] = [posicion];
                 polylines[id] = L.polyline(rutas[id], {
-                    color: (AVATARES[id] || AVATARES.default).color,
+                    color: (obtenerConfigDispositivo(id)).color,
                     weight: 3,
                     opacity: 0.6
                 }).addTo(mapa);
@@ -1075,8 +1136,8 @@
                     const distanciaKm = (distancia / 1000).toFixed(2);
                     const distanciaM = Math.round(distancia);
 
-                    const config1 = AVATARES[id1] || AVATARES.default;
-                    const config2 = AVATARES[id2] || AVATARES.default;
+                    const config1 = obtenerConfigDispositivo(id1);
+                    const config2 = obtenerConfigDispositivo(id2);
 
                     // Mostrar en panel
                     const item = document.createElement('div');
@@ -1206,7 +1267,7 @@
 
         // ===== VERIFICAR ZONAS (ALERTAS) =====
         function verificarZonas(idDispositivo, posicion) {
-            const config = AVATARES[idDispositivo] || AVATARES.default;
+            const config = obtenerConfigDispositivo(idDispositivo);
 
             zonas.forEach((zona, index) => {
                 const distancia = mapa.distance(posicion, [zona.lat, zona.lon]);
@@ -1268,7 +1329,7 @@
             // (termux-battery-status fallo), no que el telefono esta realmente a 0%.
             if (isNaN(bateria) || bateria <= 0) return;
 
-            const config = AVATARES[id] || AVATARES.default;
+            const config = obtenerConfigDispositivo(id);
 
             if (bateria <= 20 && !bateriaAlertada.has(id)) {
                 bateriaAlertada.add(id);
@@ -1403,7 +1464,71 @@
             }
         }
 
-        // Combina fechas disponibles localmente y en Firebase
+        // Trae los puntos de un dia: primero intenta Firebase (visible desde cualquier lugar),
+        // y si no hay datos ahi, usa el respaldo local de este navegador.
+        async function obtenerPuntosDelDia(id, fecha) {
+            try {
+                const inicio = new Date(fecha + 'T00:00:00').getTime();
+                const fin = inicio + 24 * 60 * 60 * 1000;
+                const snap = await db.ref(`/historial/${id}`)
+                    .orderByKey().startAt(String(inicio)).endAt(String(fin))
+                    .once('value');
+                const data = snap.val();
+                if (data) {
+                    return Object.keys(data).sort((a, b) => a - b).map(t => ({
+                        lat: data[t].lat, lon: data[t].lon,
+                        t: parseInt(t), v: data[t].v || 0
+                    }));
+                }
+            } catch (e) {
+                console.log('No se pudo leer Firebase, usando historial local', e);
+            }
+
+            const key = `ruta_${id}_${fecha}`;
+            try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; }
+        }
+
+        // Trae y combina los puntos de todos los dias entre fechaInicio y fechaFin (inclusive)
+        async function obtenerPuntosRango(id, fechaInicio, fechaFin) {
+            const fechas = [];
+            let cursor = new Date(fechaInicio + 'T00:00:00');
+            const limite = new Date(fechaFin + 'T00:00:00');
+            let seguridad = 0;
+            while (cursor <= limite && seguridad < 400) {
+                fechas.push(cursor.toISOString().slice(0, 10));
+                cursor.setDate(cursor.getDate() + 1);
+                seguridad++;
+            }
+
+            const listas = await Promise.all(fechas.map(f => obtenerPuntosDelDia(id, f)));
+            return listas.flat().sort((a, b) => a.t - b.t);
+        }
+
+        const NOMBRES_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        function formatearFechaCorta(f) {
+            const hoy = new Date().toISOString().slice(0, 10);
+            const [, m, d] = f.split('-');
+            return f === hoy ? `Hoy (${d}/${m})` : `${d}/${m}`;
+        }
+
+        function formatearMes(m) {
+            const [y, mm] = m.split('-');
+            return `${NOMBRES_MES[parseInt(mm) - 1]} ${y}`;
+        }
+
+        function calcularSemana(fecha) {
+            const d = new Date(fecha + 'T00:00:00');
+            const dia = d.getDay(); // 0 = domingo
+            const diff = (dia === 0 ? -6 : 1) - dia; // ajustar al lunes
+            const inicio = new Date(d);
+            inicio.setDate(d.getDate() + diff);
+            const fin = new Date(inicio);
+            fin.setDate(inicio.getDate() + 6);
+            return { inicio: inicio.toISOString().slice(0, 10), fin: fin.toISOString().slice(0, 10) };
+        }
+
+        // Combina fechas disponibles localmente y en Firebase (siempre dias individuales YYYY-MM-DD)
         async function obtenerFechasDisponibles(id) {
             const fechasSet = new Set();
 
@@ -1427,28 +1552,40 @@
             return Array.from(fechasSet).sort().reverse();
         }
 
-        // Trae los puntos de un dia: primero intenta Firebase (visible desde cualquier lugar),
-        // y si no hay datos ahi, usa el respaldo local de este navegador.
-        async function obtenerPuntosDelDia(id, fecha) {
-            try {
-                const inicio = new Date(fecha + 'T00:00:00').getTime();
-                const fin = inicio + 24 * 60 * 60 * 1000;
-                const snap = await db.ref(`/historial/${id}`)
-                    .orderByKey().startAt(String(inicio)).endAt(String(fin))
-                    .once('value');
-                const data = snap.val();
-                if (data) {
-                    return Object.keys(data).sort((a, b) => a - b).map(t => ({
-                        lat: data[t].lat, lon: data[t].lon,
-                        t: parseInt(t), v: data[t].v || 0
+        // Segun el rango elegido (dia/semana/mes), devuelve las opciones para el select de fecha.
+        // El "valor" de cada opcion siempre es "inicio|fin" para poder reusar la misma logica de carga.
+        async function obtenerRangosDisponibles(id, rango) {
+            const fechas = await obtenerFechasDisponibles(id);
+            if (fechas.length === 0) return [];
+
+            if (rango === 'semana') {
+                const semanas = new Map(); // inicio -> fin
+                fechas.forEach(f => {
+                    const { inicio, fin } = calcularSemana(f);
+                    if (!semanas.has(inicio)) semanas.set(inicio, fin);
+                });
+                return Array.from(semanas.entries())
+                    .sort((a, b) => b[0].localeCompare(a[0]))
+                    .map(([inicio, fin]) => ({
+                        valor: `${inicio}|${fin}`,
+                        etiqueta: `Semana ${formatearFechaCorta(inicio)} – ${formatearFechaCorta(fin)}`
                     }));
-                }
-            } catch (e) {
-                console.log('No se pudo leer Firebase, usando historial local', e);
             }
 
-            const key = `ruta_${id}_${fecha}`;
-            try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; }
+            if (rango === 'mes') {
+                const meses = new Set();
+                fechas.forEach(f => meses.add(f.slice(0, 7)));
+                return Array.from(meses).sort().reverse().map(m => {
+                    const [y, mm] = m.split('-').map(Number);
+                    const inicio = `${m}-01`;
+                    const ultimoDia = new Date(y, mm, 0).getDate();
+                    const fin = `${m}-${String(ultimoDia).padStart(2, '0')}`;
+                    return { valor: `${inicio}|${fin}`, etiqueta: formatearMes(m) };
+                });
+            }
+
+            // dia (default)
+            return fechas.map(f => ({ valor: `${f}|${f}`, etiqueta: formatearFechaCorta(f) }));
         }
 
         // ===== REPRODUCTOR DE RUTA (como avanzar una pelicula) =====
@@ -1479,7 +1616,7 @@
             }
 
             sel.innerHTML = ids.map(id => {
-                const config = AVATARES[id] || AVATARES.default;
+                const config = obtenerConfigDispositivo(id);
                 return `<option value="${id}">${config.emoji} ${config.nombre}</option>`;
             }).join('');
 
@@ -1487,38 +1624,41 @@
         }
 
         async function cambiarDispositivoReproductor() {
+            await cambiarRangoReproductor();
+        }
+
+        async function cambiarRangoReproductor() {
             const id = document.getElementById('reproductor-dispositivo').value;
+            const rango = document.getElementById('reproductor-rango').value;
             const selFecha = document.getElementById('reproductor-fecha');
             selFecha.innerHTML = '<option>Cargando...</option>';
 
-            const fechas = await obtenerFechasDisponibles(id);
+            const opciones = await obtenerRangosDisponibles(id, rango);
 
-            if (!id || fechas.length === 0) {
+            if (!id || opciones.length === 0) {
                 selFecha.innerHTML = '<option>Sin registros</option>';
                 document.getElementById('reproductor-info').textContent =
-                    'Aun no hay historial para este dispositivo. Se guarda automaticamente (en la nube y en este navegador) a medida que llegan datos.';
+                    'Aun no hay historial para este dispositivo/periodo. Se guarda automaticamente (en la nube y en este navegador) a medida que llegan datos.';
                 limpiarReproduccion();
                 return;
             }
 
-            const hoy = new Date().toISOString().slice(0, 10);
-            selFecha.innerHTML = fechas.map(f => {
-                const etiqueta = f === hoy ? `Hoy (${f})` : f;
-                return `<option value="${f}">${etiqueta}</option>`;
-            }).join('');
+            selFecha.innerHTML = opciones.map(o => `<option value="${o.valor}">${o.etiqueta}</option>`).join('');
 
             await cambiarFechaReproductor();
         }
 
         async function cambiarFechaReproductor() {
             const id = document.getElementById('reproductor-dispositivo').value;
-            const fechaSel = document.getElementById('reproductor-fecha').value;
-            if (!id || !fechaSel) { limpiarReproduccion(); return; }
+            const valor = document.getElementById('reproductor-fecha').value;
+            if (!id || !valor || !valor.includes('|')) { limpiarReproduccion(); return; }
+
+            const [inicio, fin] = valor.split('|');
 
             pausarReproduccion();
             document.getElementById('reproductor-info').textContent = 'Cargando ruta...';
 
-            const puntos = await obtenerPuntosDelDia(id, fechaSel);
+            const puntos = await obtenerPuntosRango(id, inicio, fin);
 
             reproductorPuntos = puntos;
             reproductorIndex = 0;
@@ -1648,7 +1788,7 @@
             }
 
             const id = dispositivoSeleccionado;
-            const config = AVATARES[id] || AVATARES.default;
+            const config = obtenerConfigDispositivo(id);
             const telefono = (config.telefono || '').replace(/\D/g, '');
 
             if (!telefono) {
@@ -1773,7 +1913,7 @@
 
             ids.forEach(id => {
                 const d = dispositivos[id];
-                const config = AVATARES[id] || AVATARES.default;
+                const config = obtenerConfigDispositivo(id);
                 const online = d.timestamp && (Date.now() - d.timestamp < 60000);
 
                 const item = document.createElement('div');
@@ -1799,7 +1939,7 @@
             if (!d) return;
 
             // Actualizar panel de datos
-            document.getElementById('datos-titulo').textContent = `Datos GPS - ${(AVATARES[id] || AVATARES.default).nombre}`;
+            document.getElementById('datos-titulo').textContent = `Datos GPS - ${(obtenerConfigDispositivo(id)).nombre}`;
             document.getElementById('lat').textContent = d.lat?.toFixed(6) || '--';
             document.getElementById('lon').textContent = d.lon?.toFixed(6) || '--';
             document.getElementById('prec').textContent = d.precision || '--';
@@ -2120,7 +2260,7 @@ function renderizarContactos() {
     }
     
     ids.forEach(id => {
-        const config = AVATARES[id] || AVATARES.default;
+        const config = obtenerConfigDispositivo(id);
         const guardado = localStorage.getItem('contacto_' + id) || '';
         
         const div = document.createElement('div');
@@ -2155,21 +2295,12 @@ window.guardarContacto = function(id) {
     
     localStorage.setItem('contacto_' + id, numero);
     
-    // Actualizar tambien en AVATARES para que funcione el boton WhatsApp
-    if (!AVATARES[id]) AVATARES[id] = { ...AVATARES.default };
-    AVATARES[id].telefono = numero;
+    // Actualizar tambien en AVATARES (o crearlo si es un dispositivo nuevo) para que funcione el boton WhatsApp
+    const config = obtenerConfigDispositivo(id);
+    config.telefono = numero;
     
-    mostrarToast(`Contacto guardado para ${AVATARES[id].nombre}`, 'success');
+    mostrarToast(`Contacto guardado para ${config.nombre}`, 'success');
 };
-
-// Cargar contactos guardados al iniciar
-function cargarContactosGuardados() {
-    Object.keys(AVATARES).forEach(id => {
-        const guardado = localStorage.getItem('contacto_' + id);
-        if (guardado) AVATARES[id].telefono = guardado;
-    });
-}
-cargarContactosGuardados();
 
 // Reflejar el estado guardado del boton de notificaciones al cargar
 actualizarIconoNotificaciones();

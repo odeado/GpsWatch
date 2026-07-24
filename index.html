@@ -758,6 +758,29 @@
                     </div>
                 </div>
 
+                                <!-- Zonas (Casa/Trabajo) -->
+                <div class="card" style="margin-top: 10px;">
+                    ...
+                </div>
+
+                <!-- 👉 PEGA AQUÍ EL PANEL DE CONTACTOS -->
+                <div class="card" style="margin-top: 10px;">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleContactos()">
+                        <svg class="icon"><use href="#icon-bell"/></svg>
+                        Contactos WhatsApp
+                        <svg class="icon" id="icon-contactos-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="contactos-panel" id="contactos-panel">
+                        <div id="contactos-lista"></div>
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding:8px;background:rgba(0,0,0,0.1);border-radius:8px;">
+                            💡 Los numeros se guardan en este navegador. Agrega +56 para Chile.
+                        </div>
+                    </div>
+                </div>
+
+
+                    
+
                 <!-- Historial -->
                 <div class="card" style="margin-top: 10px;">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleHistorial()">
@@ -1858,7 +1881,78 @@ window.eliminarZonaPopup = function() {
             window.cerrarPopupZona();
         });
 
-        console.log('✅ GPS Tracker cargado correctamente');
+        // ===== CONTACTOS WHATSAPP =====
+function toggleContactos() {
+    const panel = document.getElementById('contactos-panel');
+    const icon = document.getElementById('icon-contactos-toggle');
+    panel.classList.toggle('abierto');
+    const use = icon.querySelector('use');
+    use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+    if (panel.classList.contains('abierto')) renderizarContactos();
+}
+
+function renderizarContactos() {
+    const lista = document.getElementById('contactos-lista');
+    lista.innerHTML = '';
+    
+    const ids = Object.keys(dispositivos);
+    if (ids.length === 0) {
+        lista.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:12px;font-size:0.8rem;">Esperando dispositivos...</div>';
+        return;
+    }
+    
+    ids.forEach(id => {
+        const config = AVATARES[id] || AVATARES.default;
+        const guardado = localStorage.getItem('contacto_' + id) || '';
+        
+        const div = document.createElement('div');
+        div.className = 'contacto-item';
+        div.innerHTML = `
+            <div style="font-size:1.2rem;">${config.emoji}</div>
+            <div style="flex:1;">
+                <div style="font-size:0.8rem;color:var(--text-primary);font-weight:500;">${config.nombre}</div>
+                <input type="tel" id="contacto-${id}" placeholder="+56912345678" value="${guardado}">
+            </div>
+            <button class="contacto-guardar" onclick="guardarContacto('${id}')">Guardar</button>
+        `;
+        lista.appendChild(div);
+    });
+}
+
+window.guardarContacto = function(id) {
+    const input = document.getElementById('contacto-' + id);
+    const numero = input.value.trim().replace(/\s/g, '').replace(/-/g, '');
+    
+    if (!numero) {
+        localStorage.removeItem('contacto_' + id);
+        mostrarToast('Contacto eliminado', 'warning');
+        return;
+    }
+    
+    // Validar formato basico
+    if (!numero.startsWith('+') || numero.length < 10) {
+        mostrarToast('Usa formato internacional: +56912345678', 'error');
+        return;
+    }
+    
+    localStorage.setItem('contacto_' + id, numero);
+    
+    // Actualizar tambien en AVATARES para que funcione el boton WhatsApp
+    if (!AVATARES[id]) AVATARES[id] = { ...AVATARES.default };
+    AVATARES[id].telefono = numero;
+    
+    mostrarToast(`Contacto guardado para ${AVATARES[id].nombre}`, 'success');
+};
+
+// Cargar contactos guardados al iniciar
+function cargarContactosGuardados() {
+    Object.keys(AVATARES).forEach(id => {
+        const guardado = localStorage.getItem('contacto_' + id);
+        if (guardado) AVATARES[id].telefono = guardado;
+    });
+}
+cargarContactosGuardados();
+
 
         console.log('✅ GPS Tracker cargado correctamente');
     </script>

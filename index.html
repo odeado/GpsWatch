@@ -1309,6 +1309,96 @@
             renderizarDispositivos();
         }, 30000);
 
+                // ===== CREAR ZONA HACIENDO CLIC EN EL MAPA =====
+        let zonaPopup = null;
+
+        mapa.on('contextmenu', function(e) {
+            mostrarPopupZona(e.latlng);
+        });
+
+        let touchTimer = null;
+        mapa.on('touchstart', function(e) {
+            if (e.originalEvent.touches.length === 1) {
+                touchTimer = setTimeout(() => {
+                    mostrarPopupZona(e.latlng);
+                }, 800);
+            }
+        });
+        mapa.on('touchend', function() {
+            clearTimeout(touchTimer);
+        });
+        mapa.on('touchmove', function() {
+            clearTimeout(touchTimer);
+        });
+
+        function mostrarPopupZona(latlng) {
+            cerrarPopupZona();
+            
+            const popup = document.createElement('div');
+            popup.className = 'zona-popup';
+            popup.innerHTML = `
+                <h4>🏠 Crear zona aquí</h4>
+                <div class="popup-coords">${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}</div>
+                <input type="text" id="popup-nombre" placeholder="Nombre (ej: Casa)" autofocus>
+                <input type="number" id="popup-radio" placeholder="Radio en metros" value="200">
+                <div class="popup-btns">
+                    <button class="popup-btn cancelar" onclick="window.cerrarPopupZona()">Cancelar</button>
+                    <button class="popup-btn crear" onclick="window.crearZonaDesdeMapa(${latlng.lat}, ${latlng.lng})">Crear</button>
+                </div>
+            `;
+            
+            const point = mapa.latLngToContainerPoint(latlng);
+            popup.style.left = (point.x + 10) + 'px';
+            popup.style.top = (point.y - 10) + 'px';
+            
+            document.querySelector('.map-card').appendChild(popup);
+            zonaPopup = popup;
+            
+            setTimeout(() => {
+                const input = document.getElementById('popup-nombre');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        window.cerrarPopupZona = function() {
+            if (zonaPopup) {
+                zonaPopup.remove();
+                zonaPopup = null;
+            }
+        };
+
+        window.crearZonaDesdeMapa = function(lat, lon) {
+            const nombre = document.getElementById('popup-nombre').value.trim();
+            const radio = parseFloat(document.getElementById('popup-radio').value) || 200;
+            
+            if (!nombre) {
+                mostrarToast('Ingresa un nombre para la zona', 'error');
+                return;
+            }
+            
+            zonas.push({
+                nombre: nombre,
+                lat: lat,
+                lon: lon,
+                radio: radio,
+                tipo: nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo'
+            });
+            
+            localStorage.setItem('zonas', JSON.stringify(zonas));
+            renderizarZonas();
+            dibujarZonasEnMapa();
+            window.cerrarPopupZona();
+            
+            mostrarToast(`Zona "${nombre}" creada`, 'success');
+            mapa.setView([lat, lon], 16);
+        };
+
+        mapa.on('click', function() {
+            window.cerrarPopupZona();
+        });
+
+        console.log('✅ GPS Tracker cargado correctamente');
+
         console.log('✅ GPS Tracker cargado correctamente');
     </script>
 </body>

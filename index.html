@@ -535,6 +535,65 @@
         }
         .copiar-btn:hover { color: var(--accent-cyan); background: rgba(0,212,255,0.08); }
 
+        /* ===== REPRODUCTOR DE RUTA ===== */
+        .reproductor-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .reproductor-panel.abierto { max-height: 500px; opacity: 1; margin-top: 12px; }
+        .reproductor-panel select {
+            width: 100%; padding: 10px 12px; margin-bottom: 8px;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); color: var(--text-primary);
+            font-size: 0.85rem; outline: none;
+        }
+        .reproductor-panel select:focus { border-color: var(--accent-cyan); }
+        .reproductor-controles {
+            display: flex; align-items: center; gap: 8px; margin: 10px 0;
+        }
+        .btn-icon {
+            background: rgba(255,221,0,0.1); border: 1px solid rgba(255,221,0,0.25);
+            color: var(--accent-yellow); border-radius: 10px;
+            width: 40px; height: 40px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; cursor: pointer; transition: all 0.2s;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        }
+        .btn-icon:hover { background: rgba(255,221,0,0.2); }
+        .btn-icon:active { transform: scale(0.95); }
+        #btn-play { width: 46px; height: 46px; font-size: 1.1rem; }
+        .reproductor-controles select {
+            flex: 1; margin-bottom: 0; padding: 10px 8px; font-size: 0.8rem;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); color: var(--text-primary); outline: none;
+        }
+        .reproductor-panel input[type="range"] {
+            width: 100%; margin: 6px 0 10px;
+            accent-color: var(--accent-yellow);
+        }
+        .reproductor-info {
+            font-size: 0.75rem; color: var(--text-secondary);
+            text-align: center; font-family: 'SF Mono', monospace;
+            padding: 8px; background: rgba(0,0,0,0.15); border-radius: 10px;
+            line-height: 1.5;
+        }
+
+        /* ===== BOTON WHATSAPP ===== */
+        .btn-whatsapp {
+            background: rgba(0,255,136,0.08); color: var(--accent-green);
+            border-color: rgba(0,255,136,0.2);
+        }
+        .btn-whatsapp:hover { background: rgba(0,255,136,0.15); border-color: rgba(0,255,136,0.35); }
+
+        /* ===== MARCADOR DE EDICION DE ZONA (ARRASTRABLE) ===== */
+        .zona-edit-marker { cursor: grab; }
+        .zona-edit-marker:active { cursor: grabbing; }
+        .zona-popup .popup-hint {
+            font-size: 0.68rem; color: var(--text-muted);
+            margin-bottom: 8px; line-height: 1.4;
+        }
+
         /* ===== ALERTAS DE ZONA ===== */
         .alerta-zona-banner {
             position: fixed; top: 0; left: 0; right: 0;
@@ -673,6 +732,9 @@
                         <button class="btn" onclick="centrarMapa()"><svg class="icon-btn"><use href="#icon-center"/></svg>Centrar</button>
                         <button class="btn btn-secondary" id="btn-vista" onclick="cambiarVista()"><svg class="icon-btn"><use href="#icon-layers"/></svg>Vista</button>
                     </div>
+                    <div class="controls">
+                        <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">💬 WhatsApp</button>
+                    </div>
                 </div>
 
                 <!-- Zonas (Casa/Trabajo) -->
@@ -710,6 +772,31 @@
                     </div>
                 </div>
 
+                <!-- Reproductor de Ruta -->
+                <div class="card" style="margin-top: 10px;">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleReproductor()">
+                        <svg class="icon"><use href="#icon-history"/></svg>Reproducir Ruta
+                        <svg class="icon" id="icon-reproductor-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="reproductor-panel" id="reproductor-panel">
+                        <select id="reproductor-dispositivo" onchange="cambiarDispositivoReproductor()"></select>
+                        <select id="reproductor-fecha" onchange="cambiarFechaReproductor()"></select>
+                        <div class="reproductor-controles">
+                            <button class="btn-icon" onclick="retroceder()" title="Punto anterior">⏮</button>
+                            <button class="btn-icon" id="btn-play" onclick="togglePlay()" title="Reproducir/Pausar">▶</button>
+                            <button class="btn-icon" onclick="avanzar()" title="Punto siguiente">⏭</button>
+                            <select id="reproductor-velocidad">
+                                <option value="1">1x</option>
+                                <option value="2">2x</option>
+                                <option value="5" selected>5x</option>
+                                <option value="15">15x</option>
+                            </select>
+                        </div>
+                        <input type="range" id="reproductor-slider" min="0" max="0" value="0" oninput="moverSlider(this.value)">
+                        <div class="reproductor-info" id="reproductor-info">Abre este panel para ver el historial de rutas</div>
+                    </div>
+                </div>
+
                 <div class="tiempo" id="tiempo"><svg class="icon"><use href="#icon-clock"/></svg>Ultima actualizacion: --</div>
             </div>
 
@@ -734,13 +821,14 @@
 
         // ===== AVATARES POR DISPOSITIVO =====
         const AVATARES = {
-            'telefono1': { emoji: '👤', color: '#00ff88', nombre: 'Telefono 1' },
-            'telefono2': { emoji: '👩', color: '#00d4ff', nombre: 'Telefono 2' },
-            'teresa':    { emoji: '👩', color: '#aa66ff', nombre: 'Teresa' },
-            'auto1':     { emoji: '🚗', color: '#ffaa00', nombre: 'Auto' },
-            'ubicacion': { emoji: '📍', color: '#ff66aa', nombre: 'Principal' },
-            'default':   { emoji: '📱', color: '#ff4444', nombre: 'Dispositivo' }
+            'telefono1': { emoji: '👤', color: '#00ff88', nombre: 'Telefono 1', telefono: '' },
+            'telefono2': { emoji: '👩', color: '#00d4ff', nombre: 'Telefono 2', telefono: '' },
+            'teresa':    { emoji: '👩', color: '#aa66ff', nombre: 'Teresa', telefono: '' },
+            'auto1':     { emoji: '🚗', color: '#ffaa00', nombre: 'Auto', telefono: '' },
+            'ubicacion': { emoji: '📍', color: '#ff66aa', nombre: 'Principal', telefono: '' },
+            'default':   { emoji: '📱', color: '#ff4444', nombre: 'Dispositivo', telefono: '' }
         };
+        // 👉 Escribe el numero con codigo de pais y sin espacios, ej: '56912345678'
 
         // ===== MAPA =====
         const mapa = L.map('mapa', {
@@ -1109,6 +1197,246 @@
             }
         }
 
+        // ===== GUARDADO DE HISTORIAL DE RUTA (para el reproductor) =====
+        // Se guarda por dispositivo y por dia (YYYY-MM-DD) en localStorage.
+        // Nota: solo se registra mientras este panel esta abierto y recibiendo datos.
+        function guardarPuntoHistorico(id, datos, timestamp) {
+            const fecha = new Date(timestamp).toISOString().slice(0, 10);
+            const key = `ruta_${id}_${fecha}`;
+            let puntos = [];
+            try { puntos = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { puntos = []; }
+
+            const ultimo = puntos[puntos.length - 1];
+            // Evitar guardar puntos casi identicos en tiempo muy corto
+            if (!ultimo || (timestamp - ultimo.t > 4000)) {
+                puntos.push({ lat: datos.lat, lon: datos.lon, t: timestamp, v: datos.velocidad || 0 });
+                if (puntos.length > 5000) puntos.shift();
+                try { localStorage.setItem(key, JSON.stringify(puntos)); } catch (e) { /* almacenamiento lleno */ }
+            }
+        }
+
+        function obtenerFechasDisponibles(id) {
+            const fechas = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith(`ruta_${id}_`)) {
+                    fechas.push(k.replace(`ruta_${id}_`, ''));
+                }
+            }
+            return fechas.sort().reverse();
+        }
+
+        // ===== REPRODUCTOR DE RUTA (como avanzar una pelicula) =====
+        let reproductorPuntos = [];
+        let reproductorIndex = 0;
+        let reproductorPlaying = false;
+        let reproductorTimer = null;
+        let reproductorPolyline = null;
+        let reproductorMarker = null;
+
+        function toggleReproductor() {
+            const panel = document.getElementById('reproductor-panel');
+            const icon = document.getElementById('icon-reproductor-toggle');
+            panel.classList.toggle('abierto');
+            const use = icon.querySelector('use');
+            use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+            if (panel.classList.contains('abierto')) poblarSelectDispositivosReproductor();
+        }
+
+        function poblarSelectDispositivosReproductor() {
+            const sel = document.getElementById('reproductor-dispositivo');
+            const ids = Object.keys(dispositivos);
+
+            if (ids.length === 0) {
+                sel.innerHTML = '<option>Sin dispositivos</option>';
+                document.getElementById('reproductor-info').textContent = 'Aun no hay dispositivos conectados';
+                return;
+            }
+
+            sel.innerHTML = ids.map(id => {
+                const config = AVATARES[id] || AVATARES.default;
+                return `<option value="${id}">${config.emoji} ${config.nombre}</option>`;
+            }).join('');
+
+            cambiarDispositivoReproductor();
+        }
+
+        function cambiarDispositivoReproductor() {
+            const id = document.getElementById('reproductor-dispositivo').value;
+            const fechas = obtenerFechasDisponibles(id);
+            const selFecha = document.getElementById('reproductor-fecha');
+
+            if (!id || fechas.length === 0) {
+                selFecha.innerHTML = '<option>Sin registros</option>';
+                document.getElementById('reproductor-info').textContent =
+                    'Aun no hay historial guardado para este dispositivo. Se va guardando automaticamente mientras dejes este panel abierto en el navegador.';
+                limpiarReproduccion();
+                return;
+            }
+
+            const hoy = new Date().toISOString().slice(0, 10);
+            selFecha.innerHTML = fechas.map(f => {
+                const etiqueta = f === hoy ? `Hoy (${f})` : f;
+                return `<option value="${f}">${etiqueta}</option>`;
+            }).join('');
+
+            cambiarFechaReproductor();
+        }
+
+        function cambiarFechaReproductor() {
+            const id = document.getElementById('reproductor-dispositivo').value;
+            const fechaSel = document.getElementById('reproductor-fecha').value;
+            if (!id || !fechaSel) { limpiarReproduccion(); return; }
+
+            const key = `ruta_${id}_${fechaSel}`;
+            let puntos = [];
+            try { puntos = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { puntos = []; }
+
+            reproductorPuntos = puntos;
+            reproductorIndex = 0;
+            pausarReproduccion();
+
+            const slider = document.getElementById('reproductor-slider');
+            slider.max = Math.max(0, puntos.length - 1);
+            slider.value = 0;
+
+            prepararCapasReproduccion();
+            actualizarFrameReproductor();
+        }
+
+        function prepararCapasReproduccion() {
+            if (reproductorPolyline) mapa.removeLayer(reproductorPolyline);
+            if (reproductorMarker) mapa.removeLayer(reproductorMarker);
+
+            reproductorPolyline = L.polyline([], { color: '#ffdd00', weight: 4, opacity: 0.85 }).addTo(mapa);
+            reproductorMarker = L.marker([0, 0], {
+                icon: L.divIcon({
+                    className: 'reproductor-marker',
+                    html: `<div style="width:20px;height:20px;border-radius:50%;background:#ffdd00;border:3px solid #fff;box-shadow:0 0 12px #ffdd00;"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(mapa);
+        }
+
+        function limpiarReproduccion() {
+            pausarReproduccion();
+            if (reproductorPolyline) { mapa.removeLayer(reproductorPolyline); reproductorPolyline = null; }
+            if (reproductorMarker) { mapa.removeLayer(reproductorMarker); reproductorMarker = null; }
+            reproductorPuntos = [];
+            reproductorIndex = 0;
+            document.getElementById('reproductor-info').textContent = 'Sin datos para este dia';
+        }
+
+        function calcularDistanciaRuta(puntos) {
+            let total = 0;
+            for (let i = 1; i < puntos.length; i++) {
+                total += mapa.distance([puntos[i - 1].lat, puntos[i - 1].lon], [puntos[i].lat, puntos[i].lon]);
+            }
+            return total;
+        }
+
+        function actualizarFrameReproductor() {
+            if (!reproductorPuntos.length || !reproductorPolyline) {
+                document.getElementById('reproductor-info').textContent = 'Sin datos para este dia';
+                return;
+            }
+
+            const hasta = reproductorPuntos.slice(0, reproductorIndex + 1);
+            reproductorPolyline.setLatLngs(hasta.map(p => [p.lat, p.lon]));
+
+            const actual = reproductorPuntos[reproductorIndex];
+            reproductorMarker.setLatLng([actual.lat, actual.lon]);
+
+            document.getElementById('reproductor-slider').value = reproductorIndex;
+
+            const hora = new Date(actual.t).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const distanciaTotal = calcularDistanciaRuta(hasta);
+            document.getElementById('reproductor-info').textContent =
+                `${hora} · Punto ${reproductorIndex + 1}/${reproductorPuntos.length} · ${(distanciaTotal / 1000).toFixed(2)} km recorridos · ${(actual.v || 0).toFixed(1)} km/h`;
+        }
+
+        function moverSlider(valor) {
+            pausarReproduccion();
+            reproductorIndex = parseInt(valor);
+            actualizarFrameReproductor();
+        }
+
+        function avanzar() {
+            pausarReproduccion();
+            if (reproductorIndex < reproductorPuntos.length - 1) {
+                reproductorIndex++;
+                actualizarFrameReproductor();
+            }
+        }
+
+        function retroceder() {
+            pausarReproduccion();
+            if (reproductorIndex > 0) {
+                reproductorIndex--;
+                actualizarFrameReproductor();
+            }
+        }
+
+        function togglePlay() {
+            if (reproductorPlaying) {
+                pausarReproduccion();
+            } else {
+                reproducir();
+            }
+        }
+
+        function reproducir() {
+            if (!reproductorPuntos.length) return;
+            if (reproductorIndex >= reproductorPuntos.length - 1) reproductorIndex = 0;
+
+            reproductorPlaying = true;
+            document.getElementById('btn-play').textContent = '⏸';
+
+            const velocidad = parseFloat(document.getElementById('reproductor-velocidad').value) || 5;
+            const intervalo = Math.max(60, 300 / velocidad);
+
+            reproductorTimer = setInterval(() => {
+                if (reproductorIndex >= reproductorPuntos.length - 1) {
+                    pausarReproduccion();
+                    return;
+                }
+                reproductorIndex++;
+                actualizarFrameReproductor();
+            }, intervalo);
+        }
+
+        function pausarReproduccion() {
+            reproductorPlaying = false;
+            const btn = document.getElementById('btn-play');
+            if (btn) btn.textContent = '▶';
+            if (reproductorTimer) { clearInterval(reproductorTimer); reproductorTimer = null; }
+        }
+
+        // ===== WHATSAPP =====
+        function enviarWhatsapp() {
+            if (!dispositivoSeleccionado || !dispositivos[dispositivoSeleccionado]) {
+                mostrarToast('Selecciona un dispositivo primero', 'error');
+                return;
+            }
+
+            const id = dispositivoSeleccionado;
+            const config = AVATARES[id] || AVATARES.default;
+            const telefono = (config.telefono || '').replace(/\D/g, '');
+
+            if (!telefono) {
+                mostrarToast(`Configura el numero de ${config.nombre} en el codigo (AVATARES.telefono)`, 'error');
+                return;
+            }
+
+            const d = dispositivos[id];
+            const mapsLink = `https://maps.google.com/?q=${d.lat},${d.lon}`;
+            const mensaje = prompt(`Mensaje para ${config.nombre}:`, `Hola ${config.nombre}, ¿todo bien? Vi tu ubicacion aqui: ${mapsLink}`);
+
+            if (mensaje === null || mensaje.trim() === '') return;
+            window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
+        }
+
         // ===== TOAST =====
         function mostrarToast(mensaje, tipo = 'success') {
             const toast = document.getElementById('toast');
@@ -1282,6 +1610,7 @@
                 }
                 
                 agregarHistorial(id, d);
+                guardarPuntoHistorico(id, d, timestamp);
             }
         });
         
@@ -1312,71 +1641,131 @@
             renderizarDispositivos();
         }, 30000);
 
-        // ===== EDITAR ZONA EXISTENTE =====
+        // ===== EDITAR ZONA EXISTENTE (CON ARRASTRE PARA REPOSICIONAR) =====
 let zonaEditando = null;
+let edicionZonaLayers = null; // { marker, circulo }
 
 function editarZona(index) {
     const zona = zonas[index];
     zonaEditando = index;
-    
-    // Cerrar popup anterior
+
+    // Cerrar popup/edicion anterior
     cerrarPopupZona();
-    
+
+    // Marcador arrastrable + circulo de vista previa sobre el mapa
+    const marker = L.marker([zona.lat, zona.lon], {
+        draggable: true,
+        icon: L.divIcon({
+            className: 'zona-edit-marker',
+            html: `<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ffaa00;box-shadow:0 0 14px #ffaa00;display:flex;align-items:center;justify-content:center;font-size:14px;">✋</div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        })
+    }).addTo(mapa);
+
+    const circulo = L.circle([zona.lat, zona.lon], {
+        radius: zona.radio,
+        color: '#ffaa00',
+        fillColor: '#ffaa00',
+        fillOpacity: 0.12,
+        weight: 2,
+        dashArray: '4, 4'
+    }).addTo(mapa);
+
+    marker.on('drag', (e) => {
+        const pos = e.target.getLatLng();
+        circulo.setLatLng(pos);
+        const coordsEl = document.querySelector('.zona-popup .popup-coords');
+        if (coordsEl) coordsEl.textContent = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+    });
+
+    edicionZonaLayers = { marker, circulo };
+
     const popup = document.createElement('div');
     popup.className = 'zona-popup';
     popup.style.left = '50%';
-    popup.style.top = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.top = '16px';
+    popup.style.transform = 'translateX(-50%)';
     popup.innerHTML = `
         <h4>✏️ Editar "${zona.nombre}"</h4>
         <div class="popup-coords">${zona.lat.toFixed(6)}, ${zona.lon.toFixed(6)}</div>
+        <div class="popup-hint">📍 Arrastra el pin naranja en el mapa para mover la zona</div>
         <input type="text" id="popup-nombre" value="${zona.nombre}">
-        <input type="number" id="popup-radio" value="${zona.radio}">
+        <input type="number" id="popup-radio" value="${zona.radio}" oninput="actualizarRadioEdicion(this.value)">
         <div class="popup-btns">
-            <button class="popup-btn cancelar" onclick="window.cerrarPopupZona()">Cancelar</button>
+            <button class="popup-btn cancelar" onclick="window.cancelarEdicionZona()">Cancelar</button>
             <button class="popup-btn crear" onclick="window.guardarZonaEditada()">Guardar</button>
             <button class="popup-btn" style="background:rgba(255,68,68,0.15);color:#ff6b6b;" onclick="window.eliminarZonaPopup()">🗑</button>
         </div>
     `;
-    
+
     document.querySelector('.map-card').appendChild(popup);
     zonaPopup = popup;
 }
 
+window.actualizarRadioEdicion = function(valor) {
+    if (edicionZonaLayers && edicionZonaLayers.circulo) {
+        edicionZonaLayers.circulo.setRadius(parseFloat(valor) || 200);
+    }
+};
+
+function limpiarEdicionZona() {
+    if (edicionZonaLayers) {
+        mapa.removeLayer(edicionZonaLayers.marker);
+        mapa.removeLayer(edicionZonaLayers.circulo);
+        edicionZonaLayers = null;
+    }
+}
+
+window.cancelarEdicionZona = function() {
+    limpiarEdicionZona();
+    cerrarPopupZona();
+    zonaEditando = null;
+};
+
 window.guardarZonaEditada = function() {
     if (zonaEditando === null) return;
-    
+
     const nombre = document.getElementById('popup-nombre').value.trim();
     const radio = parseFloat(document.getElementById('popup-radio').value) || 200;
-    
+
     if (!nombre) {
         mostrarToast('Ingresa un nombre', 'error');
         return;
     }
-    
+
+    // Usar la posicion final del pin arrastrado (si se movio)
+    const posFinal = edicionZonaLayers
+        ? edicionZonaLayers.marker.getLatLng()
+        : { lat: zonas[zonaEditando].lat, lng: zonas[zonaEditando].lon };
+
     zonas[zonaEditando].nombre = nombre;
     zonas[zonaEditando].radio = radio;
+    zonas[zonaEditando].lat = posFinal.lat;
+    zonas[zonaEditando].lon = posFinal.lng;
     zonas[zonaEditando].tipo = nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo';
-    
+
     localStorage.setItem('zonas', JSON.stringify(zonas));
+    limpiarEdicionZona();
     renderizarZonas();
     dibujarZonasEnMapa();
     cerrarPopupZona();
     zonaEditando = null;
-    
+
     mostrarToast('Zona actualizada', 'success');
 };
 
 window.eliminarZonaPopup = function() {
     if (zonaEditando === null) return;
-    
+
     zonas.splice(zonaEditando, 1);
     localStorage.setItem('zonas', JSON.stringify(zonas));
+    limpiarEdicionZona();
     renderizarZonas();
     dibujarZonasEnMapa();
     cerrarPopupZona();
     zonaEditando = null;
-    
+
     mostrarToast('Zona eliminada', 'warning');
 };
 
@@ -1436,6 +1825,7 @@ window.eliminarZonaPopup = function() {
                 zonaPopup.remove();
                 zonaPopup = null;
             }
+            limpiarEdicionZona();
         };
 
         window.crearZonaDesdeMapa = function(lat, lon) {

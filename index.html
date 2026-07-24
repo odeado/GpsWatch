@@ -1309,6 +1309,74 @@
             renderizarDispositivos();
         }, 30000);
 
+        // ===== EDITAR ZONA EXISTENTE =====
+let zonaEditando = null;
+
+function editarZona(index) {
+    const zona = zonas[index];
+    zonaEditando = index;
+    
+    // Cerrar popup anterior
+    cerrarPopupZona();
+    
+    const popup = document.createElement('div');
+    popup.className = 'zona-popup';
+    popup.style.left = '50%';
+    popup.style.top = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.innerHTML = `
+        <h4>✏️ Editar "${zona.nombre}"</h4>
+        <div class="popup-coords">${zona.lat.toFixed(6)}, ${zona.lon.toFixed(6)}</div>
+        <input type="text" id="popup-nombre" value="${zona.nombre}">
+        <input type="number" id="popup-radio" value="${zona.radio}">
+        <div class="popup-btns">
+            <button class="popup-btn cancelar" onclick="window.cerrarPopupZona()">Cancelar</button>
+            <button class="popup-btn crear" onclick="window.guardarZonaEditada()">Guardar</button>
+            <button class="popup-btn" style="background:rgba(255,68,68,0.15);color:#ff6b6b;" onclick="window.eliminarZonaPopup()">🗑</button>
+        </div>
+    `;
+    
+    document.querySelector('.map-card').appendChild(popup);
+    zonaPopup = popup;
+}
+
+window.guardarZonaEditada = function() {
+    if (zonaEditando === null) return;
+    
+    const nombre = document.getElementById('popup-nombre').value.trim();
+    const radio = parseFloat(document.getElementById('popup-radio').value) || 200;
+    
+    if (!nombre) {
+        mostrarToast('Ingresa un nombre', 'error');
+        return;
+    }
+    
+    zonas[zonaEditando].nombre = nombre;
+    zonas[zonaEditando].radio = radio;
+    zonas[zonaEditando].tipo = nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo';
+    
+    localStorage.setItem('zonas', JSON.stringify(zonas));
+    renderizarZonas();
+    dibujarZonasEnMapa();
+    cerrarPopupZona();
+    zonaEditando = null;
+    
+    mostrarToast('Zona actualizada', 'success');
+};
+
+window.eliminarZonaPopup = function() {
+    if (zonaEditando === null) return;
+    
+    zonas.splice(zonaEditando, 1);
+    localStorage.setItem('zonas', JSON.stringify(zonas));
+    renderizarZonas();
+    dibujarZonasEnMapa();
+    cerrarPopupZona();
+    zonaEditando = null;
+    
+    mostrarToast('Zona eliminada', 'warning');
+};
+
                 // ===== CREAR ZONA HACIENDO CLIC EN EL MAPA =====
         let zonaPopup = null;
 

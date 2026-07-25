@@ -1173,6 +1173,38 @@
         const polylines = {};
         const lineasDistancia = {};
         const zonas = JSON.parse(localStorage.getItem('zonas') || '[]');
+
+        // Migracion: asegurar que cada zona tenga un id unico y estable,
+        // necesario para poder sincronizarlas en Firebase (compartidas entre
+        // el panel web y la app del celular).
+        zonas.forEach(z => {
+            if (!z.id) z.id = 'zona_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        });
+
+        // Guarda las zonas en este navegador Y las sincroniza a Firebase,
+        // para que sean visibles desde cualquier panel/celular.
+        function guardarZonas() {
+            localStorage.setItem('zonas', JSON.stringify(zonas));
+            const obj = {};
+            zonas.forEach(z => { obj[z.id] = z; });
+            db.ref('/zonas').set(obj).catch(e => console.log('No se pudo sincronizar zonas con Firebase', e));
+        }
+
+        // Trae las zonas desde Firebase (fuente compartida). Si falla, se
+        // sigue usando la copia local que ya estaba cargada.
+        async function cargarZonasDesdeFirebase() {
+            try {
+                const snap = await db.ref('/zonas').once('value');
+                const data = snap.val();
+                if (data) {
+                    zonas.length = 0;
+                    Object.values(data).forEach(z => zonas.push(z));
+                    localStorage.setItem('zonas', JSON.stringify(zonas));
+                }
+            } catch (e) {
+                console.log('No se pudo leer zonas desde Firebase, usando copia local', e);
+            }
+        }
         let zonasCirculos = [];
         let zonasAlertadas = new Set(); // Para no repetir alertas
 
@@ -1399,11 +1431,12 @@
             }
 
             zonas.push({
+                id: 'zona_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
                 nombre, lat, lon, radio,
                 tipo: nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo'
             });
 
-            localStorage.setItem('zonas', JSON.stringify(zonas));
+            guardarZonas();
             renderizarZonas();
             dibujarZonasEnMapa();
             mostrarToast(`Zona "${nombre}" agregada`, 'success');
@@ -1416,7 +1449,7 @@
 
         function eliminarZona(index) {
             zonas.splice(index, 1);
-            localStorage.setItem('zonas', JSON.stringify(zonas));
+            guardarZonas();
             renderizarZonas();
             dibujarZonasEnMapa();
             mostrarToast('Zona eliminada', 'warning');
@@ -1689,11 +1722,23 @@
             }
         }
 
+        // Calcula la fecha (YYYY-MM-DD) en hora LOCAL del navegador, no en UTC.
+        // IMPORTANTE: usar esto siempre en vez de .toISOString().slice(0,10),
+        // porque ese metodo da la fecha en UTC y en Chile eso adelanta el dia
+        // varias horas antes de medianoche real (ej: marca "25" cuando aun es "24" de noche).
+        function fechaLocalYMD(fechaOTimestamp) {
+            const d = (fechaOTimestamp instanceof Date) ? fechaOTimestamp : new Date(fechaOTimestamp);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dia}`;
+        }
+
         // ===== GUARDADO DE HISTORIAL DE RUTA (LOCAL + FIREBASE) =====
         // Local: rapido, funciona sin conexion, pero solo se ve en este navegador.
         // Firebase: se guarda en la nube, visible desde cualquier dispositivo/PC.
         function guardarPuntoHistorico(id, datos, timestamp) {
-            const fecha = new Date(timestamp).toISOString().slice(0, 10);
+            const fecha = fechaLocalYMD(timestamp);
             const key = `ruta_${id}_${fecha}`;
             let puntos = [];
             try { puntos = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { puntos = []; }
@@ -1750,7 +1795,7 @@
             const limite = new Date(fechaFin + 'T00:00:00');
             let seguridad = 0;
             while (cursor <= limite && seguridad < 400) {
-                fechas.push(cursor.toISOString().slice(0, 10));
+                fechas.push(fechaLocalYMD(cursor));
                 cursor.setDate(cursor.getDate() + 1);
                 seguridad++;
             }
@@ -1762,7 +1807,7 @@
         const NOMBRES_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
         function formatearFechaCorta(f) {
-            const hoy = new Date().toISOString().slice(0, 10);
+            const hoy = fechaLocalYMD(new Date());
             const [, m, d] = f.split('-');
             return f === hoy ? `Hoy (${d}/${m})` : `${d}/${m}`;
         }
@@ -1780,7 +1825,7 @@
             inicio.setDate(d.getDate() + diff);
             const fin = new Date(inicio);
             fin.setDate(inicio.getDate() + 6);
-            return { inicio: inicio.toISOString().slice(0, 10), fin: fin.toISOString().slice(0, 10) };
+            return { inicio: fechaLocalYMD(inicio), fin: fechaLocalYMD(fin) };
         }
 
         // Combina fechas disponibles localmente y en Firebase (siempre dias individuales YYYY-MM-DD)
@@ -1797,7 +1842,7 @@
                 const data = snap.val();
                 if (data) {
                     Object.keys(data).forEach(t => {
-                        fechasSet.add(new Date(parseInt(t)).toISOString().slice(0, 10));
+                        fechasSet.add(fechaLocalYMD(parseInt(t)));
                     });
                 }
             } catch (e) {
@@ -2292,9 +2337,27 @@
         }
 
         // ===== INICIALIZAR =====
-        renderizarZonas();
-        dibujarZonasEnMapa();
+        (async () => {
+            await cargarZonasDesdeFirebase();
+            renderizarZonas();
+            dibujarZonasEnMapa();
+        })();
         initFirebase();
+
+        // Si otro panel/celular cambia las zonas, actualizar aqui tambien (en vivo)
+        db.ref('/zonas').on('value', (snap) => {
+            const data = snap.val();
+            if (!data) return;
+            const nuevasZonas = Object.values(data);
+            // Evitar redibujar si no cambio nada (comparacion simple)
+            if (JSON.stringify(nuevasZonas) === JSON.stringify(zonas)) return;
+
+            zonas.length = 0;
+            nuevasZonas.forEach(z => zonas.push(z));
+            localStorage.setItem('zonas', JSON.stringify(zonas));
+            renderizarZonas();
+            dibujarZonasEnMapa();
+        });
 
         // Actualizar tiempo cada segundo
         setInterval(actualizarTiempo, 1000);
@@ -2408,7 +2471,7 @@ window.guardarZonaEditada = function() {
     zonas[zonaEditando].lon = posFinal.lng;
     zonas[zonaEditando].tipo = nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo';
 
-    localStorage.setItem('zonas', JSON.stringify(zonas));
+    guardarZonas();
     limpiarEdicionZona();
     renderizarZonas();
     dibujarZonasEnMapa();
@@ -2422,7 +2485,7 @@ window.eliminarZonaPopup = function() {
     if (zonaEditando === null) return;
 
     zonas.splice(zonaEditando, 1);
-    localStorage.setItem('zonas', JSON.stringify(zonas));
+    guardarZonas();
     limpiarEdicionZona();
     renderizarZonas();
     dibujarZonasEnMapa();
@@ -2501,6 +2564,7 @@ window.eliminarZonaPopup = function() {
             }
             
             zonas.push({
+                id: 'zona_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
                 nombre: nombre,
                 lat: lat,
                 lon: lon,
@@ -2508,7 +2572,7 @@ window.eliminarZonaPopup = function() {
                 tipo: nombre.toLowerCase().includes('casa') ? 'casa' : 'trabajo'
             });
             
-            localStorage.setItem('zonas', JSON.stringify(zonas));
+            guardarZonas();
             renderizarZonas();
             dibujarZonasEnMapa();
             window.cerrarPopupZona();

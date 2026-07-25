@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -27,6 +28,22 @@
             --border: rgba(255,255,255,0.05);
         }
 
+        body.tema-claro {
+            --bg-primary: #eef1f6;
+            --bg-card: rgba(0,0,0,0.035);
+            --text-primary: #16202c;
+            --text-secondary: #46586e;
+            --text-muted: #7c8ba0;
+            --border: rgba(0,0,0,0.08);
+        }
+        body.tema-claro .leaflet-control-zoom a {
+            background: rgba(255,255,255,0.95) !important;
+            color: var(--accent-cyan) !important;
+        }
+        body, .card, .toast, .zona-popup, input, select {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
         html, body {
             height: 100%;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -47,7 +64,7 @@
             margin-right: 6px; fill: currentColor;
         }
         .icon-title { width: 1.4em; height: 1.4em; fill: var(--accent-cyan); }
-        .icon-stat { width: 1.6em; height: 1.6em; fill: var(--accent-cyan); margin-bottom: 6px; }
+        .icon-stat { width: 1.15em; height: 1.15em; fill: var(--accent-cyan); margin-bottom: 4px; }
         .icon-btn { width: 1.2em; height: 1.2em; fill: currentColor; }
 
         /* ===== LAYOUT ===== */
@@ -164,14 +181,35 @@
         .sidebar-arriba { grid-area: arriba; }
         .sidebar-abajo { grid-area: abajo; }
         .map-card { grid-area: mapa; }
+
+        /* Desde tablet: la pagina completa no hace scroll, cada columna scrollea sola */
         @media (min-width: 768px) {
+            html, body { overflow: hidden; }
+            .app-container { height: 100vh; overflow: hidden; }
             .content-grid {
                 grid-template-columns: 350px 1fr;
+                grid-template-rows: 1fr 1fr;
                 grid-template-areas: "arriba mapa" "abajo mapa";
+                min-height: 0;
             }
+            .sidebar-arriba, .sidebar-abajo {
+                min-height: 0;
+                overflow-y: auto;
+                padding-right: 4px;
+            }
+            .map-card { height: 100%; }
+            #mapa { height: 100% !important; }
         }
         @media (min-width: 1024px) {
             .content-grid { grid-template-columns: 380px 1fr; }
+        }
+        /* PC / pantallas anchas: 3 columnas, el mapa queda al medio, cada columna con su propio scroll */
+        @media (min-width: 1400px) {
+            .content-grid {
+                grid-template-columns: 340px minmax(0, 1fr) 340px;
+                grid-template-rows: 1fr;
+                grid-template-areas: "arriba mapa abajo";
+            }
         }
 
         /* ===== CARDS ===== */
@@ -248,21 +286,21 @@
         /* ===== ESTADISTICAS ===== */
         .stats-grid {
             display: grid; grid-template-columns: repeat(2, 1fr);
-            gap: 10px; margin-top: 6px;
+            gap: 8px; margin-top: 6px;
         }
         .stat-item {
-            background: rgba(0,0,0,0.15); border-radius: 14px;
-            padding: 14px 8px; text-align: center;
+            background: rgba(0,0,0,0.15); border-radius: 12px;
+            padding: 9px 8px; text-align: center;
             border: 1px solid rgba(255,255,255,0.02);
             transition: all 0.25s ease;
         }
         .stat-item:hover { background: rgba(0,0,0,0.25); border-color: rgba(0,212,255,0.08); transform: translateY(-2px); }
         .stat-value {
-            font-size: clamp(1.15rem, 3vw, 1.5rem); font-weight: 700;
+            font-size: clamp(1rem, 2.4vw, 1.25rem); font-weight: 700;
             color: var(--accent-cyan); font-family: 'SF Mono', 'Consolas', monospace;
-            margin-top: 4px;
+            margin-top: 2px;
         }
-        .stat-label { font-size: clamp(0.65rem, 1.3vw, 0.75rem); color: var(--text-muted); margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-label { font-size: clamp(0.6rem, 1.1vw, 0.68rem); color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* ===== BOTONES ===== */
         .controls { display: flex; gap: 10px; margin-top: 14px; }
@@ -718,6 +756,46 @@
             0%, 100% { background-color: rgba(255,0,0,0.22); }
             50% { background-color: rgba(255,0,0,0.45); }
         }
+
+        /* ===== ALERTA GRANDE CENTRADA (llamativa) ===== */
+        .alerta-centro {
+            position: fixed; inset: 0;
+            z-index: 20000;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.5);
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.25s ease;
+            cursor: pointer;
+        }
+        .alerta-centro.mostrar { opacity: 1; visibility: visible; }
+        .alerta-centro-caja {
+            padding: clamp(24px, 6vw, 40px) clamp(28px, 8vw, 56px);
+            border-radius: 24px;
+            text-align: center;
+            color: #fff;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            transform: scale(0.85);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 90vw;
+        }
+        .alerta-centro.mostrar .alerta-centro-caja { transform: scale(1); }
+        .alerta-centro.verde .alerta-centro-caja {
+            background: linear-gradient(135deg, #00cc6a, #00915a);
+            box-shadow: 0 20px 60px rgba(0,255,136,0.35);
+        }
+        .alerta-centro.rojo .alerta-centro-caja {
+            background: linear-gradient(135deg, #ff4444, #b32020);
+            box-shadow: 0 20px 60px rgba(255,68,68,0.35);
+        }
+        .alerta-centro-titulo {
+            font-size: clamp(1.3rem, 5vw, 2rem);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .alerta-centro-subtitulo {
+            font-size: clamp(1rem, 3.5vw, 1.3rem);
+            opacity: 0.92;
+        }
     </style>
 <base target="_blank">
 </head>
@@ -741,6 +819,14 @@
         <div class="alerta-bateria-banner" id="alerta-bateria-banner">
             <span class="alerta-icono">🔋</span>
             <span id="alerta-bateria-texto">Batería baja</span>
+        </div>
+    </div>
+
+    <!-- ALERTA GRANDE CENTRADA (verde = llego a la zona, rojo = salio) -->
+    <div class="alerta-centro" id="alerta-centro" onclick="ocultarAlertaCentro()">
+        <div class="alerta-centro-caja">
+            <div class="alerta-centro-titulo" id="alerta-centro-titulo">Dispositivo</div>
+            <div class="alerta-centro-subtitulo" id="alerta-centro-subtitulo">Llegó a Casa</div>
         </div>
     </div>
 
@@ -848,9 +934,17 @@
                         <span id="estado" class="offline"><span class="estado-dot"></span>Desconectado</span>
                     </div>
                 </div>
+            </div>
 
+            <!-- Mapa -->
+            <div class="card map-card" style="padding: 0; overflow: hidden;">
+                <div id="mapa"></div>
+            </div>
+
+            <!-- Panel inferior: estadisticas, zonas, contactos, historial y reproductor de ruta -->
+            <div class="sidebar-abajo">
                 <!-- Estadisticas -->
-                <div class="card" style="margin-top: 10px;">
+                <div class="card">
                     <div class="card-title"><svg class="icon"><use href="#icon-chart"/></svg>Estadisticas</div>
                     <div class="stats-grid">
                         <div class="stat-item"><svg class="icon-stat"><use href="#icon-speed"/></svg><div class="stat-value" id="velocidad">--</div><div class="stat-label">km/h</div></div>
@@ -866,15 +960,7 @@
                         <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">💬 WhatsApp</button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Mapa -->
-            <div class="card map-card" style="padding: 0; overflow: hidden;">
-                <div id="mapa"></div>
-            </div>
-
-            <!-- Panel inferior: zonas, contactos, historial y reproductor de ruta -->
-            <div class="sidebar-abajo">
                 <!-- Zonas (Casa/Trabajo) -->
                 <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleZonas()">
@@ -1078,7 +1164,8 @@
         const UMBRAL_OFFLINE_MS = 6.5 * 60 * 1000; // 6.5 minutos
 
         let dispositivoSeleccionado = null;
-        let sonidoActivado = false;
+        // Activado por defecto: si el usuario nunca lo tocó, queremos que SI avise con sonido.
+        let sonidoActivado = localStorage.getItem('sonido_activado') !== '0';
         let audioCtx = null;
         const dispositivos = {};
         const marcadores = {};
@@ -1392,6 +1479,7 @@
 
                     mostrarBannerAlerta(`🏠 ${config.nombre} llegó a ${zona.nombre}!`);
                     mostrarToast(`${config.nombre} entró a ${zona.nombre}`, 'success');
+                    mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Llegó a ${zona.nombre}`, 'verde');
                     enviarNotificacionPush(`🏠 ${config.nombre} llegó`, `Entró a ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('entrada');
@@ -1404,6 +1492,7 @@
 
                     mostrarBannerAlerta(`🚪 ${config.nombre} salió de ${zona.nombre}`);
                     mostrarToast(`${config.nombre} salió de ${zona.nombre}`, 'warning');
+                    mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Salió de ${zona.nombre}`, 'rojo');
                     enviarNotificacionPush(`🚪 ${config.nombre} salió`, `Salió de ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('salida');
@@ -1420,6 +1509,27 @@
             setTimeout(() => {
                 banner.classList.remove('mostrar');
             }, 4000);
+        }
+
+        // ===== ALERTA GRANDE CENTRADA (llamativa, verde=llego / rojo=salio) =====
+        let alertaCentroTimer = null;
+
+        function mostrarAlertaCentro(titulo, subtitulo, color) {
+            const overlay = document.getElementById('alerta-centro');
+            document.getElementById('alerta-centro-titulo').textContent = titulo;
+            document.getElementById('alerta-centro-subtitulo').textContent = subtitulo;
+
+            overlay.classList.remove('verde', 'rojo');
+            overlay.classList.add(color === 'rojo' ? 'rojo' : 'verde');
+            overlay.classList.add('mostrar');
+
+            if (alertaCentroTimer) clearTimeout(alertaCentroTimer);
+            alertaCentroTimer = setTimeout(() => overlay.classList.remove('mostrar'), 3500);
+        }
+
+        function ocultarAlertaCentro() {
+            document.getElementById('alerta-centro').classList.remove('mostrar');
+            if (alertaCentroTimer) clearTimeout(alertaCentroTimer);
         }
 
         // ===== ALERTA DE BATERIA BAJA =====
@@ -1970,6 +2080,7 @@
         // ===== SONIDO =====
         function toggleSonido() {
             sonidoActivado = !sonidoActivado;
+            localStorage.setItem('sonido_activado', sonidoActivado ? '1' : '0');
             const btn = document.getElementById('btn-sonido');
             btn.style.color = sonidoActivado ? 'var(--accent-green)' : 'var(--text-secondary)';
             mostrarToast(sonidoActivado ? 'Sonido activado' : 'Sonido desactivado', 'success');
@@ -1983,9 +2094,11 @@
             gain.connect(audioCtx.destination);
 
             if (tipo === 'entrada') {
-                osc.frequency.setValueAtTime(523, audioCtx.currentTime); // Do
-                osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1); // Mi
-                osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2); // Sol
+                // Campanita de bienvenida: arpegio ascendente mas largo y notorio
+                osc.frequency.setValueAtTime(523, audioCtx.currentTime);       // Do
+                osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.12); // Mi
+                osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.24); // Sol
+                osc.frequency.setValueAtTime(1047, audioCtx.currentTime + 0.36); // Do (octava arriba)
             } else if (tipo === 'bateria') {
                 // Sonido de alerta mas urgente: 3 tonos graves descendentes
                 osc.frequency.setValueAtTime(440, audioCtx.currentTime);
@@ -2002,13 +2115,15 @@
                 osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.5);
                 osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.6);
             } else {
+                // salida: descendente, mas notorio tambien
                 osc.frequency.setValueAtTime(784, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
-                osc.frequency.setValueAtTime(523, audioCtx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.12);
+                osc.frequency.setValueAtTime(523, audioCtx.currentTime + 0.24);
+                osc.frequency.setValueAtTime(392, audioCtx.currentTime + 0.36);
             }
 
-            const duracion = tipo === 'bateria' ? 0.6 : tipo === 'panico' ? 0.9 : 0.4;
-            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            const duracion = tipo === 'bateria' ? 0.6 : tipo === 'panico' ? 0.9 : 0.55;
+            gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracion);
 
             osc.start(audioCtx.currentTime);
@@ -2017,12 +2132,23 @@
 
         // ===== TEMA =====
         function toggleTema() {
-            // Por ahora solo toggle del icono
+            const esClaro = document.body.classList.toggle('tema-claro');
+            localStorage.setItem('tema_claro', esClaro ? '1' : '0');
+            actualizarIconoTema(esClaro);
+        }
+
+        function actualizarIconoTema(esClaro) {
             const icon = document.getElementById('icon-tema');
             const use = icon.querySelector('use');
-            const current = use.getAttribute('href');
-            use.setAttribute('href', current === '#icon-sun' ? '#icon-moon' : '#icon-sun');
+            use.setAttribute('href', esClaro ? '#icon-moon' : '#icon-sun');
         }
+
+        // Aplicar el tema guardado al cargar la pagina
+        (function aplicarTemaGuardado() {
+            const esClaro = localStorage.getItem('tema_claro') === '1';
+            if (esClaro) document.body.classList.add('tema-claro');
+            document.addEventListener('DOMContentLoaded', () => actualizarIconoTema(esClaro));
+        })();
 
         // ===== COPIAR =====
         function copiarCoord(campo) {
@@ -2460,6 +2586,9 @@ window.guardarContacto = function(id) {
 
 // Reflejar el estado guardado del boton de notificaciones al cargar
 actualizarIconoNotificaciones();
+
+// Reflejar el estado inicial del sonido (activado por defecto salvo que el usuario lo haya apagado antes)
+document.getElementById('btn-sonido').style.color = sonidoActivado ? 'var(--accent-green)' : 'var(--text-secondary)';
 
         console.log('✅ GPS Tracker cargado correctamente');
     </script>

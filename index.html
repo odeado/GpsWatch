@@ -141,6 +141,19 @@
         .device-status.online { background: rgba(0,255,136,0.1); color: var(--accent-green); }
         .device-status.offline { background: rgba(255,68,68,0.1); color: #ff6b6b; }
 
+        .device-estadia {
+            font-size: 0.74rem; margin-top: 3px; line-height: 1.3;
+            color: var(--text-secondary);
+        }
+        .device-meta {
+            display: flex; flex-direction: column; align-items: flex-end;
+            gap: 5px; flex-shrink: 0;
+        }
+        .device-bateria {
+            font-size: 0.7rem; font-weight: 600;
+            font-family: 'SF Mono', monospace;
+        }
+
         /* ===== DISTANCIA ENTRE DISPOSITIVOS ===== */
         .distancia-panel {
             background: rgba(0,0,0,0.2);
@@ -1191,7 +1204,9 @@
         }
 
         // Trae las zonas desde Firebase (fuente compartida). Si falla, se
-        // sigue usando la copia local que ya estaba cargada.
+        // sigue usando la copia local que ya estaba cargada. Si Firebase esta
+        // vacio pero aca ya habia zonas guardadas de antes, las sube solas
+        // (migracion automatica, no hay que resguardarlas a mano).
         async function cargarZonasDesdeFirebase() {
             try {
                 const snap = await db.ref('/zonas').once('value');
@@ -1200,6 +1215,8 @@
                     zonas.length = 0;
                     Object.values(data).forEach(z => zonas.push(z));
                     localStorage.setItem('zonas', JSON.stringify(zonas));
+                } else if (zonas.length > 0) {
+                    guardarZonas();
                 }
             } catch (e) {
                 console.log('No se pudo leer zonas desde Firebase, usando copia local', e);
@@ -2221,6 +2238,101 @@
         }
 
         // ===== RENDERIZAR LISTA DE DISPOSITIVOS =====
+        // ===== ESTADIA: donde esta cada uno y desde hace cuanto =====
+        // Se calcula mirando hacia atras en el historial: se retrocede punto a punto
+        // mientras siga en el mismo lugar (misma zona, o a menos de RADIO_ESTADIA
+        // metros si no esta en ninguna zona). El primer punto que ya no cumple
+        // marca el momento en que llego.
+        const RADIO_ESTADIA = 150; // metros
+        const ESTADIA_REFRESCO_MS = 2 * 60 * 1000; // recalcular como mucho cada 2 min
+        const estadiaCache = {}; // { id: { desde, zonaNombre, calculadoEn } }
+        const estadiaEnCurso = new Set(); // evita recalcular lo mismo en paralelo / bucles de render
+
+        function zonaQueContiene(lat, lon) {
+            for (const zona of zonas) {
+                if (typeof zona.lat !== 'number') continue;
+                if (mapa.distance([lat, lon], [zona.lat, zona.lon]) <= (zona.radio || 200)) return zona;
+            }
+            return null;
+        }
+
+        async function calcularEstadia(id) {
+            if (estadiaEnCurso.has(id)) return;
+            estadiaEnCurso.add(id);
+
+            try {
+                const d = dispositivos[id];
+                if (!d || typeof d.lat !== 'number') {
+                    // Guardar igual para no reintentar en cada render
+                    estadiaCache[id] = { desde: Date.now(), zonaNombre: null, zonaTipo: null, calculadoEn: Date.now() };
+                    return;
+                }
+
+                const zonaActual = zonaQueContiene(d.lat, d.lon);
+                const puntos = await obtenerPuntosDelDia(id, fechaLocalYMD(new Date()));
+
+                let desde = d.timestamp || Date.now();
+
+                // Recorrer de atras hacia adelante mientras siga "en el mismo lugar"
+                for (let i = puntos.length - 1; i >= 0; i--) {
+                    const p = puntos[i];
+                    let sigueAhi;
+                    if (zonaActual) {
+                        sigueAhi = mapa.distance([p.lat, p.lon], [zonaActual.lat, zonaActual.lon]) <= (zonaActual.radio || 200);
+                    } else {
+                        sigueAhi = mapa.distance([p.lat, p.lon], [d.lat, d.lon]) <= RADIO_ESTADIA;
+                    }
+                    if (!sigueAhi) break;
+                    desde = p.t;
+                }
+
+                estadiaCache[id] = {
+                    desde,
+                    zonaNombre: zonaActual ? zonaActual.nombre : null,
+                    zonaTipo: zonaActual ? zonaActual.tipo : null,
+                    calculadoEn: Date.now()
+                };
+            } catch (e) {
+                console.log('No se pudo calcular la estadia de', id, e);
+                estadiaCache[id] = { desde: Date.now(), zonaNombre: null, zonaTipo: null, calculadoEn: Date.now() };
+            } finally {
+                estadiaEnCurso.delete(id);
+                renderizarDispositivos();
+            }
+        }
+
+        function textoTiempoTranscurrido(desdeMs) {
+            const min = Math.floor((Date.now() - desdeMs) / 60000);
+            if (min < 1) return 'recién';
+            if (min < 60) return `${min} min`;
+            const horas = Math.floor(min / 60);
+            const resto = min % 60;
+            return resto > 0 ? `${horas}h ${resto}m` : `${horas}h`;
+        }
+
+        function textoEstadia(id) {
+            const d = dispositivos[id];
+            const cache = estadiaCache[id];
+
+            // Si esta en movimiento, no tiene sentido hablar de estadia
+            if (d && d.velocidad > 3) return '<span style="color:var(--accent-cyan);">🚶 En movimiento</span>';
+
+            if (!cache) return '<span style="color:var(--text-muted);">Calculando...</span>';
+
+            const tiempo = textoTiempoTranscurrido(cache.desde);
+            if (cache.zonaNombre) {
+                const icono = cache.zonaTipo === 'casa' ? '🏠' : '💼';
+                return `<span style="color:var(--accent-green);">${icono} ${cache.zonaNombre}</span> · hace ${tiempo}`;
+            }
+            return `<span style="color:var(--text-secondary);">📍 Detenido</span> · hace ${tiempo}`;
+        }
+
+        function colorBateria(nivel) {
+            if (nivel <= 20) return '#ff6b6b';
+            if (nivel <= 40) return 'var(--accent-orange)';
+            return 'var(--accent-green)';
+        }
+
         function renderizarDispositivos() {
             const panel = document.getElementById('devices-panel');
             panel.innerHTML = '';
@@ -2242,6 +2354,17 @@
                 const config = obtenerConfigDispositivo(id);
                 const online = d.timestamp && (Date.now() - d.timestamp < UMBRAL_OFFLINE_MS);
 
+                // Recalcular la estadia si no existe o si ya esta vieja
+                const cache = estadiaCache[id];
+                if (!cache || (Date.now() - cache.calculadoEn > ESTADIA_REFRESCO_MS)) {
+                    calcularEstadia(id);
+                }
+
+                const bateria = parseInt(d.bateria);
+                const badgeBateria = (!isNaN(bateria) && bateria > 0)
+                    ? `<span class="device-bateria" style="color:${colorBateria(bateria)};">🔋 ${bateria}%</span>`
+                    : '';
+
                 const item = document.createElement('div');
                 item.className = 'device-item' + (id === dispositivoSeleccionado ? ' activo' : '');
                 item.onclick = () => seleccionarDispositivo(id);
@@ -2251,9 +2374,13 @@
                     </div>
                     <div class="device-info">
                         <div class="device-name">${config.nombre}</div>
+                        <div class="device-estadia">${textoEstadia(id)}</div>
                         <div class="device-coords">${d.lat?.toFixed(4)}, ${d.lon?.toFixed(4)}</div>
                     </div>
-                    <div class="device-status ${online ? 'online' : 'offline'}">${online ? 'Online' : 'Offline'}</div>
+                    <div class="device-meta">
+                        <div class="device-status ${online ? 'online' : 'offline'}">${online ? 'Online' : 'Offline'}</div>
+                        ${badgeBateria}
+                    </div>
                 `;
                 panel.appendChild(item);
             });

@@ -153,6 +153,16 @@
             font-size: 0.7rem; font-weight: 600;
             font-family: 'SF Mono', monospace;
         }
+        .device-borrar {
+            background: rgba(255,68,68,0.08); border: 1px solid rgba(255,68,68,0.15);
+            cursor: pointer;
+            color: #ff6b6b; font-size: 0.8rem; line-height: 1;
+            padding: 4px 7px; border-radius: 7px;
+            opacity: 0.65; transition: all 0.2s;
+        }
+        .device-item:hover .device-borrar { opacity: 1; }
+        .device-borrar:hover { background: rgba(255,68,68,0.2); border-color: rgba(255,68,68,0.4); }
+        .device-borrar:active { transform: scale(0.9); }
 
         /* ===== DISTANCIA ENTRE DISPOSITIVOS ===== */
         .distancia-panel {
@@ -1099,6 +1109,9 @@
         // Devuelve la config (emoji/color/nombre/telefono) de un dispositivo.
         // Si el id no esta en AVATARES, se genera una automatica y se guarda
         // para que sea siempre la misma durante la sesion.
+        // Perfiles elegidos desde la app del celular (emoji/color), compartidos via Firebase
+        const perfilesRemotos = {};
+
         function obtenerConfigDispositivo(id) {
             if (!AVATARES[id]) {
                 const h = hashTexto(id);
@@ -1106,6 +1119,14 @@
                 const color = COLORES_AUTO[h % COLORES_AUTO.length];
                 const nombre = id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 AVATARES[id] = { emoji, color, nombre, telefono: '' };
+            }
+
+            // El perfil elegido a mano desde la app manda sobre el automatico
+            const perfil = perfilesRemotos[id];
+            if (perfil) {
+                if (perfil.emoji) AVATARES[id].emoji = perfil.emoji;
+                if (perfil.color) AVATARES[id].color = perfil.color;
+                if (perfil.nombre) AVATARES[id].nombre = perfil.nombre;
             }
 
             // Cargar telefono guardado en este navegador, si existe
@@ -1177,6 +1198,7 @@
         const UMBRAL_OFFLINE_MS = 6.5 * 60 * 1000; // 6.5 minutos
 
         let dispositivoSeleccionado = null;
+        let huboAutoSeleccion = false; // para centrar el mapa solo en la primera auto-seleccion
         // Activado por defecto: si el usuario nunca lo tocó, queremos que SI avise con sonido.
         let sonidoActivado = localStorage.getItem('sonido_activado') !== '0';
         let audioCtx = null;
@@ -2343,9 +2365,13 @@
                 return;
             }
 
-            // Auto-seleccionar el primer dispositivo si aun no hay ninguno elegido
+            // Auto-seleccionar el primer dispositivo si aun no hay ninguno elegido.
+            // Solo se centra el mapa la PRIMERA vez (al abrir el panel); si pasa
+            // despues (ej: se borro el seleccionado), no se mueve la vista.
             if (!dispositivoSeleccionado || !dispositivos[dispositivoSeleccionado]) {
-                seleccionarDispositivo(ids[0]);
+                const esPrimeraVez = !huboAutoSeleccion;
+                huboAutoSeleccion = true;
+                seleccionarDispositivo(ids[0], esPrimeraVez);
                 return; // seleccionarDispositivo ya vuelve a llamar renderizarDispositivos()
             }
 
@@ -2380,13 +2406,65 @@
                     <div class="device-meta">
                         <div class="device-status ${online ? 'online' : 'offline'}">${online ? 'Online' : 'Offline'}</div>
                         ${badgeBateria}
+                        <button class="device-borrar" title="Eliminar este dispositivo" onclick="borrarDispositivo('${id}', event)">✕</button>
                     </div>
                 `;
                 panel.appendChild(item);
             });
         }
 
-        function seleccionarDispositivo(id) {
+        // ===== BORRAR UN DISPOSITIVO QUE YA NO SE USA =====
+        // Borra su posicion actual, su historial y su perfil de Firebase.
+        window.borrarDispositivo = async function(id, evento) {
+            if (evento) evento.stopPropagation(); // no seleccionar el dispositivo al tocar la X
+
+            const config = obtenerConfigDispositivo(id);
+            if (!confirm(`¿Borrar "${config.nombre}" y todo su historial?\n\nEsto no se puede deshacer. Si el celular vuelve a enviar datos, aparecerá de nuevo.`)) return;
+
+            try {
+                await Promise.all([
+                    db.ref(`/dispositivos/${id}`).remove(),
+                    db.ref(`/historial/${id}`).remove(),
+                    db.ref(`/perfiles/${id}`).remove()
+                ]);
+
+                // Limpiar todo lo que quedo en pantalla
+                if (marcadores[id]) { mapa.removeLayer(marcadores[id]); delete marcadores[id]; }
+                if (polylines[id]) { mapa.removeLayer(polylines[id]); delete polylines[id]; }
+                delete dispositivos[id];
+                delete rutas[id];
+                delete estadiaCache[id];
+                if (dispositivoSeleccionado === id) dispositivoSeleccionado = null;
+
+                // Borrar tambien el historial local de ese dispositivo
+                Object.keys(localStorage)
+                    .filter(k => k.startsWith(`ruta_${id}_`))
+                    .forEach(k => localStorage.removeItem(k));
+
+                renderizarDispositivos();
+                actualizarDistancias();
+                mostrarToast(`"${config.nombre}" eliminado`, 'warning');
+            } catch (e) {
+                console.log('No se pudo borrar el dispositivo', e);
+                mostrarToast('No se pudo borrar', 'error');
+            }
+        };
+
+        // Vuelve a dibujar los avatares del mapa (al cambiar emoji/color desde la app)
+        function refrescarAvataresEnMapa() {
+            Object.keys(marcadores).forEach(id => {
+                const d = dispositivos[id];
+                if (!d) return;
+                mapa.removeLayer(marcadores[id]);
+                marcadores[id] = crearAvatar(id, d);
+                if (polylines[id]) polylines[id].setStyle({ color: obtenerConfigDispositivo(id).color });
+            });
+        }
+
+        // centrar=true solo cuando el usuario elige el dispositivo a mano.
+        // Si se centrara en cada actualizacion de Firebase, el mapa volveria
+        // a hacer zoom solo mientras el usuario esta explorando/alejando.
+        function seleccionarDispositivo(id, centrar = true) {
             dispositivoSeleccionado = id;
             const d = dispositivos[id];
             if (!d) return;
@@ -2409,8 +2487,7 @@
             // Actualizar lista visual
             renderizarDispositivos();
 
-            // Centrar en el dispositivo
-            mapa.setView([d.lat, d.lon], 16);
+            if (centrar) mapa.setView([d.lat, d.lon], 16);
         }
 
         // ===== FIREBASE LISTENER =====
@@ -2438,7 +2515,8 @@
                 actualizarDispositivoEnMapa(id, d);
                 
                 if (id === dispositivoSeleccionado) {
-                    seleccionarDispositivo(id);
+                    // false = refrescar datos SIN mover el mapa (respeta el zoom/posicion del usuario)
+                    seleccionarDispositivo(id, false);
                 }
                 
                 agregarHistorial(id, d);
@@ -2484,6 +2562,17 @@
             localStorage.setItem('zonas', JSON.stringify(zonas));
             renderizarZonas();
             dibujarZonasEnMapa();
+        });
+
+        // Perfiles (emoji/color/nombre elegidos desde la app del celular)
+        db.ref('/perfiles').on('value', (snap) => {
+            const data = snap.val();
+            if (!data) return;
+            Object.entries(data).forEach(([id, perfil]) => { perfilesRemotos[id] = perfil; });
+            // Forzar que obtenerConfigDispositivo reaplique los perfiles nuevos
+            Object.keys(perfilesRemotos).forEach(id => obtenerConfigDispositivo(id));
+            renderizarDispositivos();
+            refrescarAvataresEnMapa();
         });
 
         // Actualizar tiempo cada segundo

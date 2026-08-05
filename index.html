@@ -780,6 +780,89 @@
             50% { background-color: rgba(255,0,0,0.45); }
         }
 
+        /* ===== RESUMEN DEL DIA ===== */
+        .resumen-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .resumen-panel.abierto { max-height: 500px; opacity: 1; margin-top: 12px; }
+        .resumen-panel select {
+            width: 100%; padding: 9px 12px; margin-bottom: 10px;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); color: var(--text-primary);
+            font-size: 0.82rem; outline: none;
+        }
+        .resumen-panel select:focus { border-color: var(--accent-cyan); }
+        .resumen-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+            margin-bottom: 10px;
+        }
+        .resumen-item {
+            background: rgba(0,0,0,0.15); border-radius: 12px;
+            padding: 10px 8px; text-align: center;
+        }
+        .resumen-valor {
+            font-size: 1.1rem; font-weight: 700; color: var(--accent-cyan);
+            font-family: 'SF Mono', monospace;
+        }
+        .resumen-label {
+            font-size: 0.62rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px;
+        }
+        .resumen-linea {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 7px 10px; font-size: 0.78rem;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .resumen-linea:last-child { border-bottom: none; }
+        .resumen-linea .valor { font-family: 'SF Mono', monospace; color: var(--accent-green); }
+
+        /* ===== HISTORIAL DE EVENTOS ===== */
+        .eventos-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .eventos-panel.abierto { max-height: 420px; opacity: 1; margin-top: 12px; overflow-y: auto; }
+        .eventos-filtros { display: flex; gap: 8px; margin-bottom: 10px; }
+        .eventos-filtros select {
+            flex: 1; padding: 8px 10px; font-size: 0.78rem;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); color: var(--text-primary); outline: none;
+        }
+        .eventos-filtros select:focus { border-color: var(--accent-cyan); }
+        .evento-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 9px 10px; border-radius: 10px;
+            background: rgba(0,0,0,0.15);
+            margin-bottom: 6px;
+            border-left: 3px solid var(--text-muted);
+        }
+        .evento-item.llegada { border-left-color: var(--accent-green); }
+        .evento-item.salida  { border-left-color: var(--accent-orange); }
+        .evento-item.bateria { border-left-color: #ff6b6b; }
+        .evento-item.panico  { border-left-color: #ff2222; background: rgba(255,0,0,0.08); }
+        .evento-icono { font-size: 1rem; flex-shrink: 0; line-height: 1.3; }
+        .evento-cuerpo { flex: 1; min-width: 0; }
+        .evento-texto { font-size: 0.8rem; color: var(--text-primary); line-height: 1.35; }
+        .evento-hora {
+            font-size: 0.68rem; color: var(--text-muted);
+            font-family: 'SF Mono', monospace; margin-top: 2px;
+        }
+        .evento-dia-titulo {
+            font-size: 0.68rem; color: var(--accent-cyan);
+            text-transform: uppercase; letter-spacing: 1px;
+            margin: 12px 0 6px; font-weight: 600;
+        }
+        .evento-dia-titulo:first-child { margin-top: 0; }
+        .eventos-badge {
+            background: rgba(0,212,255,0.15); color: var(--accent-cyan);
+            font-size: 0.62rem; padding: 2px 7px; border-radius: 8px;
+            font-weight: 700; letter-spacing: 0;
+        }
+        .eventos-badge:empty { display: none; }
+
         /* ===== ALERTA GRANDE CENTRADA (llamativa) ===== */
         .alerta-centro {
             position: fixed; inset: 0;
@@ -948,6 +1031,10 @@
                         <span class="label"><svg class="icon"><use href="#icon-pin"/></svg>Longitud</span>
                         <span><b id="lon">--</b><button class="copiar-btn" onclick="copiarCoord('lon')" title="Copiar"><svg class="icon" style="width:0.9em;height:0.9em;"><use href="#icon-copy"/></svg></button></span>
                     </div>
+                    <div class="dato dato-direccion">
+                        <span class="label"><svg class="icon"><use href="#icon-home"/></svg>Dirección</span>
+                        <b id="direccion-actual" style="font-size:0.85rem;text-align:right;font-family:'Segoe UI',sans-serif;">--</b>
+                    </div>
                     <div class="dato">
                         <span class="label"><svg class="icon"><use href="#icon-signal"/></svg>Precision</span>
                         <b id="prec">--</b> <span style="color:var(--text-muted);font-size:0.75em;">m</span>
@@ -981,6 +1068,20 @@
                     </div>
                     <div class="controls">
                         <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">💬 WhatsApp</button>
+                    </div>
+                </div>
+
+                <!-- Resumen del dia -->
+                <div class="card">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleResumen()">
+                        <svg class="icon"><use href="#icon-chart"/></svg>Resumen del día
+                        <svg class="icon" id="icon-resumen-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="resumen-panel" id="resumen-panel">
+                        <select id="resumen-dispositivo" onchange="calcularResumen()"></select>
+                        <div id="resumen-contenido">
+                            <div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Abre este panel para ver el resumen</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1031,6 +1132,30 @@
                             <thead><tr><th>Hora</th><th>Lat</th><th>Lon</th><th>Accion</th></tr></thead>
                             <tbody id="historial-body"></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Historial de Eventos (bitacora) -->
+                <div class="card">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleEventos()">
+                        <svg class="icon"><use href="#icon-bell"/></svg>Eventos
+                        <span id="eventos-badge" class="eventos-badge"></span>
+                        <svg class="icon" id="icon-eventos-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="eventos-panel" id="eventos-panel">
+                        <div class="eventos-filtros">
+                            <select id="eventos-filtro-persona" onchange="renderizarEventos()">
+                                <option value="">Todos</option>
+                            </select>
+                            <select id="eventos-filtro-tipo" onchange="renderizarEventos()">
+                                <option value="">Todo tipo</option>
+                                <option value="llegada">🏠 Llegadas</option>
+                                <option value="salida">🚪 Salidas</option>
+                                <option value="bateria">🔋 Batería</option>
+                                <option value="panico">🆘 Pánico</option>
+                            </select>
+                        </div>
+                        <div id="eventos-lista"></div>
                     </div>
                 </div>
 
@@ -1527,6 +1652,47 @@
         }
 
         // ===== VERIFICAR ZONAS (ALERTAS) =====
+        // ===== HISTORIAL DE EVENTOS (bitacora familiar) =====
+        // Cada llegada, salida, bateria baja o panico queda guardado en Firebase
+        // con su hora, para poder revisarlo despues aunque nadie estuviera mirando.
+        const EVENTOS_MAX = 500; // se conservan los ultimos N eventos
+
+        async function registrarEvento(tipo, idDispositivo, texto) {
+            const ahora = Date.now();
+            // Clave con el minuto: si hay varios paneles abiertos a la vez,
+            // todos escriben la misma clave y el evento no se duplica.
+            const clave = `${Math.floor(ahora / 60000)}_${tipo}_${idDispositivo}`.replace(/[.#$/\[\]]/g, '_');
+
+            try {
+                await db.ref(`/eventos/${clave}`).set({
+                    tipo,
+                    dispositivo: idDispositivo,
+                    texto,
+                    t: ahora
+                });
+            } catch (e) {
+                console.log('No se pudo registrar el evento', e);
+            }
+        }
+
+        // Borra los eventos mas viejos para que la base no crezca sin control
+        async function limpiarEventosViejos() {
+            try {
+                const snap = await db.ref('/eventos').once('value');
+                const data = snap.val();
+                if (!data) return;
+
+                const claves = Object.keys(data);
+                if (claves.length <= EVENTOS_MAX) return;
+
+                const ordenadas = claves.sort((a, b) => (data[a].t || 0) - (data[b].t || 0));
+                const aBorrar = ordenadas.slice(0, claves.length - EVENTOS_MAX);
+                await Promise.all(aBorrar.map(k => db.ref(`/eventos/${k}`).remove()));
+            } catch (e) {
+                console.log('No se pudieron limpiar eventos viejos', e);
+            }
+        }
+
         function verificarZonas(idDispositivo, posicion) {
             const config = obtenerConfigDispositivo(idDispositivo);
 
@@ -1553,6 +1719,7 @@
                     mostrarToast(`${config.nombre} entró a ${zona.nombre}`, 'success');
                     mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Llegó a ${zona.nombre}`, 'verde');
                     enviarNotificacionPush(`🏠 ${config.nombre} llegó`, `Entró a ${zona.nombre}`);
+                    registrarEvento('llegada', idDispositivo, `${config.nombre} llegó a ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('entrada');
                 }
@@ -1566,6 +1733,7 @@
                     mostrarToast(`${config.nombre} salió de ${zona.nombre}`, 'warning');
                     mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Salió de ${zona.nombre}`, 'rojo');
                     enviarNotificacionPush(`🚪 ${config.nombre} salió`, `Salió de ${zona.nombre}`);
+                    registrarEvento('salida', idDispositivo, `${config.nombre} salió de ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('salida');
                 }
@@ -1620,6 +1788,7 @@
                 mostrarBannerBateria(`🔋 ${config.nombre} tiene batería baja (${bateria}%)`);
                 mostrarToast(`${config.nombre}: batería al ${bateria}%`, 'error');
                 enviarNotificacionPush('🔋 Batería baja', `${config.nombre} está al ${bateria}%`);
+                registrarEvento('bateria', id, `${config.nombre} con batería baja (${bateria}%)`);
                 if (sonidoActivado) reproducirSonido('bateria');
             } else if (bateria > 25 && bateriaAlertada.has(id)) {
                 // Se le da un margen (histeresis) antes de permitir una nueva alerta
@@ -1656,6 +1825,7 @@
                     mostrarBannerPanico(`${config.emoji} ${config.nombre} activó el BOTÓN DE PÁNICO`);
                     mostrarToast(`🆘 EMERGENCIA: ${config.nombre}`, 'error');
                     enviarNotificacionPush('🆘 EMERGENCIA', `${config.nombre} activó el botón de pánico`);
+                    registrarEvento('panico', id, `${config.nombre} activó el BOTÓN DE PÁNICO`);
                     if (sonidoActivado) reproducirSonido('panico');
                 }
             } else {
@@ -1680,6 +1850,290 @@
                 idPanicoActual = null;
             }
         };
+
+        // ===== DIRECCIONES REALES (geocodificacion inversa) =====
+        // Convierte coordenadas en algo legible ("Av. Pedro Aguirre Cerda 1234")
+        // usando Nominatim (OpenStreetMap, gratuito).
+        // Se cachea agresivamente por dos razones: Nominatim pide no abusar
+        // (max ~1 consulta por segundo) y las coordenadas cercanas comparten calle.
+        const direccionesCache = JSON.parse(localStorage.getItem('direcciones_cache') || '{}');
+        let ultimaConsultaNominatim = 0;
+
+        function claveDireccion(lat, lon) {
+            // Redondear a ~11 metros: coordenadas muy cercanas reusan la misma direccion
+            return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+        }
+
+        async function obtenerDireccion(lat, lon) {
+            const clave = claveDireccion(lat, lon);
+            if (direccionesCache[clave]) return direccionesCache[clave];
+
+            // Respetar el limite de 1 consulta por segundo de Nominatim
+            const desdeUltima = Date.now() - ultimaConsultaNominatim;
+            if (desdeUltima < 1100) {
+                await new Promise(r => setTimeout(r, 1100 - desdeUltima));
+            }
+            ultimaConsultaNominatim = Date.now();
+
+            try {
+                const resp = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=es`
+                );
+                const data = await resp.json();
+                if (!data || !data.address) return null;
+
+                const a = data.address;
+                const calle = a.road || a.pedestrian || a.suburb || a.neighbourhood || '';
+                const numero = a.house_number ? ` ${a.house_number}` : '';
+                const barrio = a.suburb || a.neighbourhood || a.city_district || '';
+                const ciudad = a.city || a.town || a.village || '';
+
+                let texto;
+                if (calle) texto = `${calle}${numero}${ciudad && calle !== ciudad ? ', ' + ciudad : ''}`;
+                else if (barrio) texto = `${barrio}${ciudad ? ', ' + ciudad : ''}`;
+                else texto = ciudad || data.display_name?.split(',').slice(0, 2).join(',') || null;
+
+                if (texto) {
+                    direccionesCache[clave] = texto;
+                    try { localStorage.setItem('direcciones_cache', JSON.stringify(direccionesCache)); } catch (e) { /* lleno */ }
+                }
+                return texto;
+            } catch (e) {
+                console.log('No se pudo obtener la direccion', e);
+                return null;
+            }
+        }
+
+        // Pide la direccion y, cuando llega, la escribe en el elemento indicado
+        function pintarDireccion(lat, lon, elementoId) {
+            const clave = claveDireccion(lat, lon);
+            if (direccionesCache[clave]) {
+                const el = document.getElementById(elementoId);
+                if (el) el.textContent = direccionesCache[clave];
+                return;
+            }
+            obtenerDireccion(lat, lon).then(texto => {
+                if (!texto) return;
+                const el = document.getElementById(elementoId);
+                if (el) el.textContent = texto;
+            });
+        }
+
+        // ===== RESUMEN DEL DIA =====
+        function toggleResumen() {
+            const panel = document.getElementById('resumen-panel');
+            const icon = document.getElementById('icon-resumen-toggle');
+            panel.classList.toggle('abierto');
+            const use = icon.querySelector('use');
+            use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+
+            if (panel.classList.contains('abierto')) {
+                const sel = document.getElementById('resumen-dispositivo');
+                const ids = Object.keys(dispositivos);
+                sel.innerHTML = ids.map(id => {
+                    const c = obtenerConfigDispositivo(id);
+                    return `<option value="${id}" ${id === dispositivoSeleccionado ? 'selected' : ''}>${c.emoji} ${c.nombre}</option>`;
+                }).join('');
+                calcularResumen();
+            }
+        }
+
+        function formatearDuracion(ms) {
+            const min = Math.round(ms / 60000);
+            if (min < 60) return `${min} min`;
+            const h = Math.floor(min / 60);
+            const r = min % 60;
+            return r > 0 ? `${h}h ${r}m` : `${h}h`;
+        }
+
+        async function calcularResumen() {
+            const cont = document.getElementById('resumen-contenido');
+            const id = document.getElementById('resumen-dispositivo').value;
+            if (!id) {
+                cont.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Sin dispositivos</div>';
+                return;
+            }
+
+            cont.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Calculando...</div>';
+
+            const puntos = await obtenerPuntosDelDia(id, fechaLocalYMD(new Date()));
+            if (puntos.length < 2) {
+                cont.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Aún no hay suficientes datos de hoy</div>';
+                return;
+            }
+
+            // Distancia total y velocidad maxima
+            let distancia = 0, velMax = 0;
+            for (let i = 1; i < puntos.length; i++) {
+                distancia += mapa.distance([puntos[i-1].lat, puntos[i-1].lon], [puntos[i].lat, puntos[i].lon]);
+                if ((puntos[i].v || 0) > velMax) velMax = puntos[i].v;
+            }
+
+            // Tiempo dentro de cada zona, y tiempo en movimiento
+            const tiempoPorZona = {};
+            let tiempoMoviendose = 0;
+
+            for (let i = 1; i < puntos.length; i++) {
+                const lapso = puntos[i].t - puntos[i-1].t;
+                if (lapso <= 0 || lapso > 30 * 60000) continue; // ignorar huecos grandes
+
+                const zona = zonaQueContiene(puntos[i].lat, puntos[i].lon);
+                if (zona) {
+                    tiempoPorZona[zona.nombre] = (tiempoPorZona[zona.nombre] || 0) + lapso;
+                } else if ((puntos[i].v || 0) > 3) {
+                    tiempoMoviendose += lapso;
+                }
+            }
+
+            // Primera salida y ultima llegada a una zona
+            let primeraSalida = null, ultimaLlegada = null;
+            let estabaDentro = !!zonaQueContiene(puntos[0].lat, puntos[0].lon);
+            for (let i = 1; i < puntos.length; i++) {
+                const dentro = !!zonaQueContiene(puntos[i].lat, puntos[i].lon);
+                if (estabaDentro && !dentro && primeraSalida === null) primeraSalida = puntos[i].t;
+                if (!estabaDentro && dentro) ultimaLlegada = puntos[i].t;
+                estabaDentro = dentro;
+            }
+
+            const hora = t => new Date(t).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+
+            let html = `
+                <div class="resumen-grid">
+                    <div class="resumen-item">
+                        <div class="resumen-valor">${(distancia/1000).toFixed(1)}</div>
+                        <div class="resumen-label">km recorridos</div>
+                    </div>
+                    <div class="resumen-item">
+                        <div class="resumen-valor">${velMax.toFixed(0)}</div>
+                        <div class="resumen-label">vel. máxima</div>
+                    </div>
+                </div>`;
+
+            const zonasOrdenadas = Object.entries(tiempoPorZona).sort((a, b) => b[1] - a[1]);
+            zonasOrdenadas.forEach(([nombre, ms]) => {
+                html += `<div class="resumen-linea"><span>🏠 En ${nombre}</span><span class="valor">${formatearDuracion(ms)}</span></div>`;
+            });
+            if (tiempoMoviendose > 0) {
+                html += `<div class="resumen-linea"><span>🚶 En movimiento</span><span class="valor">${formatearDuracion(tiempoMoviendose)}</span></div>`;
+            }
+            if (primeraSalida) {
+                html += `<div class="resumen-linea"><span>🚪 Primera salida</span><span class="valor">${hora(primeraSalida)}</span></div>`;
+            }
+            if (ultimaLlegada) {
+                html += `<div class="resumen-linea"><span>🏁 Última llegada</span><span class="valor">${hora(ultimaLlegada)}</span></div>`;
+            }
+            html += `<div class="resumen-linea"><span>📍 Puntos registrados</span><span class="valor">${puntos.length}</span></div>`;
+
+            cont.innerHTML = html;
+        }
+
+        // ===== PANEL DE EVENTOS =====
+        let eventosCache = [];
+        let eventosVistos = parseInt(localStorage.getItem('eventos_vistos_hasta') || '0');
+
+        const EVENTO_ICONOS = { llegada: '🏠', salida: '🚪', bateria: '🔋', panico: '🆘' };
+
+        function toggleEventos() {
+            const panel = document.getElementById('eventos-panel');
+            const icon = document.getElementById('icon-eventos-toggle');
+            panel.classList.toggle('abierto');
+            const use = icon.querySelector('use');
+            use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+
+            if (panel.classList.contains('abierto')) {
+                // Al abrirlo, se marcan como vistos
+                if (eventosCache.length) {
+                    eventosVistos = eventosCache[0].t;
+                    localStorage.setItem('eventos_vistos_hasta', String(eventosVistos));
+                }
+                actualizarBadgeEventos();
+                renderizarEventos();
+            }
+        }
+
+        function actualizarBadgeEventos() {
+            const badge = document.getElementById('eventos-badge');
+            const nuevos = eventosCache.filter(e => e.t > eventosVistos).length;
+            badge.textContent = nuevos > 0 ? (nuevos > 99 ? '99+' : String(nuevos)) : '';
+        }
+
+        function poblarFiltroPersonas() {
+            const sel = document.getElementById('eventos-filtro-persona');
+            const actual = sel.value;
+            const ids = [...new Set(eventosCache.map(e => e.dispositivo))].sort();
+
+            sel.innerHTML = '<option value="">Todos</option>' + ids.map(id => {
+                const c = obtenerConfigDispositivo(id);
+                return `<option value="${id}">${c.emoji} ${c.nombre}</option>`;
+            }).join('');
+            sel.value = actual;
+        }
+
+        function etiquetaDia(timestamp) {
+            const fecha = fechaLocalYMD(timestamp);
+            const hoy = fechaLocalYMD(new Date());
+            const ayer = fechaLocalYMD(new Date(Date.now() - 86400000));
+            if (fecha === hoy) return 'Hoy';
+            if (fecha === ayer) return 'Ayer';
+            const [, m, d] = fecha.split('-');
+            return `${d}/${m}`;
+        }
+
+        function renderizarEventos() {
+            const lista = document.getElementById('eventos-lista');
+            const filtroPersona = document.getElementById('eventos-filtro-persona').value;
+            const filtroTipo = document.getElementById('eventos-filtro-tipo').value;
+
+            const filtrados = eventosCache.filter(e =>
+                (!filtroPersona || e.dispositivo === filtroPersona) &&
+                (!filtroTipo || e.tipo === filtroTipo)
+            );
+
+            if (filtrados.length === 0) {
+                lista.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:18px;font-size:0.8rem;">Sin eventos que mostrar</div>';
+                return;
+            }
+
+            let html = '';
+            let diaPrevio = null;
+
+            filtrados.forEach(e => {
+                const dia = etiquetaDia(e.t);
+                if (dia !== diaPrevio) {
+                    html += `<div class="evento-dia-titulo">${dia}</div>`;
+                    diaPrevio = dia;
+                }
+                const hora = new Date(e.t).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+                html += `
+                    <div class="evento-item ${e.tipo}">
+                        <div class="evento-icono">${EVENTO_ICONOS[e.tipo] || '•'}</div>
+                        <div class="evento-cuerpo">
+                            <div class="evento-texto">${e.texto}</div>
+                            <div class="evento-hora">${hora}</div>
+                        </div>
+                    </div>`;
+            });
+
+            lista.innerHTML = html;
+        }
+
+        // Escuchar los eventos en vivo (los genera cualquier panel abierto)
+        db.ref('/eventos').limitToLast(EVENTOS_MAX).on('value', (snap) => {
+            const data = snap.val();
+            eventosCache = data
+                ? Object.values(data).sort((a, b) => b.t - a.t)
+                : [];
+
+            poblarFiltroPersonas();
+            actualizarBadgeEventos();
+
+            if (document.getElementById('eventos-panel').classList.contains('abierto')) {
+                renderizarEventos();
+            }
+        });
+
+        // Limpiar eventos viejos de vez en cuando
+        setTimeout(limpiarEventosViejos, 15000);
 
         // ===== NOTIFICACIONES PUSH DEL NAVEGADOR =====
         // Funcionan aunque minimices o cambies de pestaña, mientras el navegador
@@ -2137,7 +2591,9 @@
 
             const d = dispositivos[id];
             const mapsLink = `https://maps.google.com/?q=${d.lat},${d.lon}`;
-            const mensaje = prompt(`Mensaje para ${config.nombre}:`, `Hola ${config.nombre}, ¿todo bien? Vi tu ubicacion aqui: ${mapsLink}`);
+            const dir = direccionesCache[claveDireccion(d.lat, d.lon)];
+            const dondeEsta = dir ? ` Te vi por ${dir}.` : '';
+            const mensaje = prompt(`Mensaje para ${config.nombre}:`, `Hola ${config.nombre}, ¿todo bien?${dondeEsta} Tu ubicacion: ${mapsLink}`);
 
             if (mensaje === null || mensaje.trim() === '') return;
             window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
@@ -2401,7 +2857,7 @@
                     <div class="device-info">
                         <div class="device-name">${config.nombre}</div>
                         <div class="device-estadia">${textoEstadia(id)}</div>
-                        <div class="device-coords">${d.lat?.toFixed(4)}, ${d.lon?.toFixed(4)}</div>
+                        <div class="device-coords" id="dir-${id}" title="${d.lat?.toFixed(5)}, ${d.lon?.toFixed(5)}">${d.lat?.toFixed(4)}, ${d.lon?.toFixed(4)}</div>
                     </div>
                     <div class="device-meta">
                         <div class="device-status ${online ? 'online' : 'offline'}">${online ? 'Online' : 'Offline'}</div>
@@ -2410,6 +2866,9 @@
                     </div>
                 `;
                 panel.appendChild(item);
+
+                // Reemplazar las coordenadas por la direccion legible cuando llegue
+                if (typeof d.lat === 'number') pintarDireccion(d.lat, d.lon, `dir-${id}`);
             });
         }
 
@@ -2478,6 +2937,13 @@
             document.getElementById('altitud').textContent = d.altitud || '--';
             document.getElementById('satelites').textContent = d.satelites || '--';
             document.getElementById('bateria').textContent = d.bateria || '--';
+
+            // Direccion legible (se completa cuando responde el servicio)
+            if (typeof d.lat === 'number') {
+                const clave = claveDireccion(d.lat, d.lon);
+                document.getElementById('direccion-actual').textContent = direccionesCache[clave] || 'Buscando...';
+                pintarDireccion(d.lat, d.lon, 'direccion-actual');
+            }
 
             const online = d.timestamp && (Date.now() - d.timestamp < UMBRAL_OFFLINE_MS);
             const estado = document.getElementById('estado');

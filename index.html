@@ -79,7 +79,7 @@
         /* ===== HEADER ===== */
         .header {
             text-align: center;
-            padding: clamp(6px, 1.5vw, 12px) 0;
+            padding: clamp(2px, 0.6vw, 6px) 0;
             position: relative;
         }
         .header h1 {
@@ -219,6 +219,7 @@
                 min-height: 0;
                 overflow-y: auto;
                 padding-right: 4px;
+                padding-bottom: 24px; /* respiro para que la ultima card no quede pegada al borde */
             }
             .map-card { height: 100%; }
             #mapa { height: 100% !important; }
@@ -863,6 +864,30 @@
         }
         .eventos-badge:empty { display: none; }
 
+        /* ===== PILDORA DE SEGUIMIENTO ===== */
+        .map-card { position: relative; }
+        .pildora-seguimiento {
+            position: absolute; top: 12px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 800;
+            background: rgba(10,10,20,0.88);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 7px 14px; border-radius: 20px;
+            font-size: 0.76rem; font-weight: 600;
+            cursor: pointer; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .pildora-seguimiento:empty { display: none; }
+        .pildora-seguimiento:hover { border-color: rgba(0,212,255,0.4); }
+        .pildora-seguimiento.activa {
+            background: rgba(0,212,255,0.18);
+            border-color: rgba(0,212,255,0.45);
+            color: var(--accent-cyan);
+        }
+        .pildora-seguimiento .pildora-x { margin-left: 6px; opacity: 0.7; }
+
         /* ===== ALERTA GRANDE CENTRADA (llamativa) ===== */
         .alerta-centro {
             position: fixed; inset: 0;
@@ -1048,6 +1073,7 @@
 
             <!-- Mapa -->
             <div class="card map-card" style="padding: 0; overflow: hidden;">
+                <div class="pildora-seguimiento" id="pildora-seguimiento" onclick="alternarSeguimiento()"></div>
                 <div id="mapa"></div>
             </div>
 
@@ -2953,8 +2979,66 @@
             // Actualizar lista visual
             renderizarDispositivos();
 
-            if (centrar) mapa.setView([d.lat, d.lon], 16);
+            if (centrar) {
+                // Al elegir a mano: activar el seguimiento y acercar
+                modoSeguimiento = true;
+                actualizarPildoraSeguimiento();
+                moverMapa([d.lat, d.lon], 16);
+            }
         }
+
+        // ===== MODO SEGUIMIENTO =====
+        // Cuando esta activo, el mapa acompaña al dispositivo seleccionado.
+        // Se apaga solo si el usuario arrastra o hace zoom a mano, para no
+        // pelear con el mientras explora el mapa.
+        let modoSeguimiento = false;
+        let movimientoProgramatico = false;
+
+        function moverMapa(latlng, zoom) {
+            movimientoProgramatico = true;
+            if (zoom !== undefined) mapa.setView(latlng, zoom, { animate: true });
+            else mapa.panTo(latlng, { animate: true });
+            setTimeout(() => { movimientoProgramatico = false; }, 500);
+        }
+
+        function desactivarSeguimiento() {
+            if (!modoSeguimiento) return;
+            modoSeguimiento = false;
+            actualizarPildoraSeguimiento();
+        }
+
+        window.alternarSeguimiento = function() {
+            if (modoSeguimiento) {
+                desactivarSeguimiento();
+            } else if (dispositivoSeleccionado && dispositivos[dispositivoSeleccionado]) {
+                modoSeguimiento = true;
+                const d = dispositivos[dispositivoSeleccionado];
+                moverMapa([d.lat, d.lon]);
+                actualizarPildoraSeguimiento();
+            }
+        };
+
+        function actualizarPildoraSeguimiento() {
+            const pildora = document.getElementById('pildora-seguimiento');
+            if (!pildora) return;
+
+            if (modoSeguimiento && dispositivoSeleccionado) {
+                const c = obtenerConfigDispositivo(dispositivoSeleccionado);
+                pildora.innerHTML = `🎯 Siguiendo a ${c.nombre} <span class="pildora-x">✕</span>`;
+                pildora.classList.add('activa');
+            } else if (dispositivoSeleccionado) {
+                const c = obtenerConfigDispositivo(dispositivoSeleccionado);
+                pildora.innerHTML = `📍 Seguir a ${c.nombre}`;
+                pildora.classList.remove('activa');
+            } else {
+                pildora.innerHTML = '';
+                pildora.classList.remove('activa');
+            }
+        }
+
+        // Si el usuario mueve el mapa a mano, se corta el seguimiento
+        mapa.on('dragstart', desactivarSeguimiento);
+        mapa.on('zoomstart', () => { if (!movimientoProgramatico) desactivarSeguimiento(); });
 
         // ===== FIREBASE LISTENER =====
        function initFirebase() {
@@ -2983,6 +3067,9 @@
                 if (id === dispositivoSeleccionado) {
                     // false = refrescar datos SIN mover el mapa (respeta el zoom/posicion del usuario)
                     seleccionarDispositivo(id, false);
+                    // ...salvo que el modo seguimiento este activo: ahi si lo acompaña,
+                    // manteniendo el zoom que el usuario haya elegido.
+                    if (modoSeguimiento) moverMapa([d.lat, d.lon]);
                 }
                 
                 agregarHistorial(id, d);
@@ -3335,6 +3422,9 @@ actualizarIconoNotificaciones();
 
 // Reflejar el estado inicial del sonido (activado por defecto salvo que el usuario lo haya apagado antes)
 document.getElementById('btn-sonido').style.color = sonidoActivado ? 'var(--accent-green)' : 'var(--text-secondary)';
+
+// Estado inicial de la pildora de seguimiento
+actualizarPildoraSeguimiento();
 
         console.log('✅ GPS Tracker cargado correctamente');
     </script>

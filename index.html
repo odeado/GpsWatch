@@ -921,6 +921,17 @@
         .paradero-nota {
             font-size: 0.68rem; color: var(--text-muted); margin-top: 3px;
         }
+        .paradero-form-titulo {
+            font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);
+            margin-bottom: 7px;
+        }
+        .paradero-editar {
+            background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.18);
+            font-size: 0.72rem; line-height: 1;
+            padding: 4px 7px; border-radius: 7px; cursor: pointer;
+            flex-shrink: 0; opacity: 0.75; margin-right: 4px;
+        }
+        .paradero-editar:hover { opacity: 1; background: rgba(0,212,255,0.2); }
         .paradero-borrar {
             background: rgba(255,68,68,0.08); border: 1px solid rgba(255,68,68,0.15);
             color: #ff6b6b; font-size: 0.75rem; line-height: 1;
@@ -1194,13 +1205,14 @@
 
                         <!-- Formulario (aparece al capturar) -->
                         <div class="paradero-form" id="paradero-form">
+                            <div class="paradero-form-titulo" id="paradero-form-titulo">🚏 Nuevo paradero</div>
                             <div class="paradero-form-coords" id="paradero-form-coords">--</div>
                             <input type="text" id="paradero-nombre" placeholder="Nombre (ej: Paradero Plaza)">
                             <input type="text" id="paradero-micros" placeholder="Micros: 3, 9, 12">
                             <input type="text" id="paradero-nota" placeholder="Nota (opcional: hacia el centro, etc)">
                             <div class="paradero-form-btns">
                                 <button class="popup-btn cancelar" onclick="cancelarParadero()">Cancelar</button>
-                                <button class="popup-btn crear" onclick="guardarParadero()">Guardar</button>
+                                <button class="popup-btn crear" id="btn-guardar-paradero" onclick="guardarParadero()">Guardar</button>
                             </div>
                         </div>
 
@@ -2156,6 +2168,7 @@
         let paraderos = [];
         let paraderosMarcadores = [];
         let paraderoPendiente = null; // { lat, lon } capturado, esperando el formulario
+        let paraderoEditandoId = null; // si no es null, se esta editando uno existente
 
         function toggleParaderos() {
             const panel = document.getElementById('paraderos-panel');
@@ -2185,9 +2198,12 @@
 
         function abrirFormularioParadero(lat, lon, precision) {
             paraderoPendiente = { lat, lon };
+            paraderoEditandoId = null; // es uno nuevo
 
             const form = document.getElementById('paradero-form');
             form.classList.add('visible');
+            document.getElementById('paradero-form-titulo').textContent = '🚏 Nuevo paradero';
+            document.getElementById('btn-guardar-paradero').textContent = 'Guardar';
 
             const prec = precision ? ` · ±${Math.round(precision)}m` : '';
             document.getElementById('paradero-form-coords').textContent =
@@ -2209,8 +2225,52 @@
             });
         }
 
+        // Abre el mismo formulario pero cargado con los datos de un paradero ya guardado
+        window.editarParadero = function(id, evento) {
+            if (evento) evento.stopPropagation();
+            const p = paraderos.find(x => x.id === id);
+            if (!p) return;
+
+            paraderoPendiente = { lat: p.lat, lon: p.lon };
+            paraderoEditandoId = id;
+
+            const form = document.getElementById('paradero-form');
+            form.classList.add('visible');
+            document.getElementById('paradero-form-titulo').textContent = '✏️ Editando paradero';
+            document.getElementById('btn-guardar-paradero').textContent = 'Guardar cambios';
+
+            document.getElementById('paradero-form-coords').textContent =
+                `${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
+            document.getElementById('paradero-nombre').value = p.nombre || '';
+            document.getElementById('paradero-micros').value = (p.micros || []).join(', ');
+            document.getElementById('paradero-nota').value = p.nota || '';
+
+            const panel = document.getElementById('paraderos-panel');
+            if (!panel.classList.contains('abierto')) toggleParaderos();
+            form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
+        // Reubica un paradero existente en tu posicion actual (por si quedo mal puesto)
+        window.reubicarParaderoAqui = function() {
+            if (!paraderoEditandoId) return;
+            if (!navigator.geolocation) { mostrarToast('Sin acceso al GPS', 'error'); return; }
+
+            mostrarToast('Obteniendo tu ubicación...', 'success');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    paraderoPendiente = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                    document.getElementById('paradero-form-coords').textContent =
+                        `${paraderoPendiente.lat.toFixed(6)}, ${paraderoPendiente.lon.toFixed(6)} · ±${Math.round(pos.coords.accuracy)}m (nueva)`;
+                    mostrarToast('Posición actualizada, ahora guarda', 'success');
+                },
+                () => mostrarToast('No se pudo obtener el GPS', 'error'),
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        };
+
         function cancelarParadero() {
             paraderoPendiente = null;
+            paraderoEditandoId = null;
             document.getElementById('paradero-form').classList.remove('visible');
         }
 
@@ -2232,17 +2292,23 @@
                 .map(m => m.trim())
                 .filter(Boolean);
 
-            const id = 'par_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            // Si se esta editando, se conserva el id y la fecha original
+            const editando = !!paraderoEditandoId;
+            const previo = editando ? paraderos.find(x => x.id === paraderoEditandoId) : null;
+            const id = editando ? paraderoEditandoId
+                                : 'par_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
             const paradero = {
                 id, nombre, micros, nota,
                 lat: paraderoPendiente.lat,
                 lon: paraderoPendiente.lon,
-                creado: Date.now()
+                creado: (previo && previo.creado) ? previo.creado : Date.now()
             };
+            if (editando) paradero.editado = Date.now();
 
             try {
                 await db.ref(`/paraderos/${id}`).set(paradero);
-                mostrarToast(`Paradero "${nombre}" guardado`, 'success');
+                mostrarToast(editando ? `"${nombre}" actualizado` : `Paradero "${nombre}" guardado`, 'success');
                 cancelarParadero();
             } catch (e) {
                 console.log('No se pudo guardar el paradero', e);
@@ -2284,6 +2350,7 @@
                                 : '<div class="paradero-nota">Sin micros anotadas</div>'}
                             ${p.nota ? `<div class="paradero-nota">${p.nota}</div>` : ''}
                         </div>
+                        <button class="paradero-editar" onclick="editarParadero('${p.id}', event)" title="Editar">✏️</button>
                         <button class="paradero-borrar" onclick="borrarParadero('${p.id}', event)" title="Borrar">✕</button>
                     </div>
                 `).join('');

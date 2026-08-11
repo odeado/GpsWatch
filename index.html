@@ -864,6 +864,71 @@
         }
         .eventos-badge:empty { display: none; }
 
+        /* ===== PARADEROS ===== */
+        .paraderos-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .paraderos-panel.abierto { max-height: 560px; opacity: 1; margin-top: 12px; overflow-y: auto; }
+        .btn-marcar {
+            width: 100%;
+            background: rgba(255,170,0,0.1); color: var(--accent-orange);
+            border-color: rgba(255,170,0,0.25);
+        }
+        .btn-marcar:hover { background: rgba(255,170,0,0.2); border-color: rgba(255,170,0,0.45); }
+        .paradero-hint {
+            font-size: 0.68rem; color: var(--text-muted);
+            margin: 8px 0 10px; line-height: 1.45;
+            padding: 8px; background: rgba(0,0,0,0.12); border-radius: 8px;
+        }
+        .paradero-form {
+            display: none;
+            background: rgba(255,170,0,0.06);
+            border: 1px solid rgba(255,170,0,0.22);
+            border-radius: 12px; padding: 12px; margin-bottom: 12px;
+        }
+        .paradero-form.visible { display: block; animation: fadeInUp 0.25s ease; }
+        .paradero-form input {
+            width: 100%; padding: 9px 11px; margin-bottom: 7px;
+            border-radius: 9px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.28); color: var(--text-primary);
+            font-size: 0.82rem; outline: none;
+        }
+        .paradero-form input:focus { border-color: var(--accent-orange); }
+        .paradero-form-coords {
+            font-family: 'SF Mono', monospace; font-size: 0.68rem;
+            color: var(--accent-orange); margin-bottom: 9px;
+        }
+        .paradero-form-btns { display: flex; gap: 8px; }
+        .paradero-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(0,0,0,0.15); border-radius: 11px;
+            padding: 10px; margin-bottom: 7px;
+            border-left: 3px solid var(--accent-orange);
+            cursor: pointer;
+        }
+        .paradero-item:hover { background: rgba(0,0,0,0.25); }
+        .paradero-info { flex: 1; min-width: 0; }
+        .paradero-nombre { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+        .paradero-micros { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+        .micro-chip {
+            background: rgba(255,170,0,0.16); color: var(--accent-orange);
+            font-size: 0.66rem; font-weight: 700;
+            padding: 2px 7px; border-radius: 6px;
+            font-family: 'SF Mono', monospace;
+        }
+        .paradero-nota {
+            font-size: 0.68rem; color: var(--text-muted); margin-top: 3px;
+        }
+        .paradero-borrar {
+            background: rgba(255,68,68,0.08); border: 1px solid rgba(255,68,68,0.15);
+            color: #ff6b6b; font-size: 0.75rem; line-height: 1;
+            padding: 4px 7px; border-radius: 7px; cursor: pointer;
+            flex-shrink: 0; opacity: 0.65;
+        }
+        .paradero-borrar:hover { opacity: 1; background: rgba(255,68,68,0.2); }
+
         /* ===== PILDORA DE SEGUIMIENTO ===== */
         .map-card { position: relative; }
         .pildora-seguimiento {
@@ -1108,6 +1173,38 @@
                         <div id="resumen-contenido">
                             <div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Abre este panel para ver el resumen</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Paraderos de micro -->
+                <div class="card">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleParaderos()">
+                        🚏 Paraderos
+                        <span id="paraderos-badge" class="eventos-badge"></span>
+                        <svg class="icon" id="icon-paraderos-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="paraderos-panel" id="paraderos-panel">
+                        <button class="btn btn-marcar" onclick="marcarParaderoAqui()">
+                            📌 Marcar paradero aquí (GPS)
+                        </button>
+                        <div class="paradero-hint">
+                            Párate en el paradero y toca el botón: toma tu ubicación exacta.
+                            También puedes mantener presionado un punto del mapa.
+                        </div>
+
+                        <!-- Formulario (aparece al capturar) -->
+                        <div class="paradero-form" id="paradero-form">
+                            <div class="paradero-form-coords" id="paradero-form-coords">--</div>
+                            <input type="text" id="paradero-nombre" placeholder="Nombre (ej: Paradero Plaza)">
+                            <input type="text" id="paradero-micros" placeholder="Micros: 3, 9, 12">
+                            <input type="text" id="paradero-nota" placeholder="Nota (opcional: hacia el centro, etc)">
+                            <div class="paradero-form-btns">
+                                <button class="popup-btn cancelar" onclick="cancelarParadero()">Cancelar</button>
+                                <button class="popup-btn crear" onclick="guardarParadero()">Guardar</button>
+                            </div>
+                        </div>
+
+                        <div id="paraderos-lista"></div>
                     </div>
                 </div>
 
@@ -2052,6 +2149,191 @@
 
             cont.innerHTML = html;
         }
+
+        // ===== PARADEROS DE MICRO =====
+        // Base de datos propia, alimentada a mano estando parado en cada paradero.
+        // Se guardan en /paraderos de Firebase, asi los ve cualquier dispositivo.
+        let paraderos = [];
+        let paraderosMarcadores = [];
+        let paraderoPendiente = null; // { lat, lon } capturado, esperando el formulario
+
+        function toggleParaderos() {
+            const panel = document.getElementById('paraderos-panel');
+            const icon = document.getElementById('icon-paraderos-toggle');
+            panel.classList.toggle('abierto');
+            const use = icon.querySelector('use');
+            use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+        }
+
+        // Captura la posicion actual del navegador (el celular sabe donde estas)
+        function marcarParaderoAqui() {
+            if (!navigator.geolocation) {
+                mostrarToast('Este navegador no da acceso al GPS', 'error');
+                return;
+            }
+            mostrarToast('Obteniendo tu ubicación...', 'success');
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => abrirFormularioParadero(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+                (err) => {
+                    console.log('Error GPS', err);
+                    mostrarToast('No se pudo obtener el GPS. Revisa los permisos del navegador.', 'error');
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        }
+
+        function abrirFormularioParadero(lat, lon, precision) {
+            paraderoPendiente = { lat, lon };
+
+            const form = document.getElementById('paradero-form');
+            form.classList.add('visible');
+
+            const prec = precision ? ` · ±${Math.round(precision)}m` : '';
+            document.getElementById('paradero-form-coords').textContent =
+                `${lat.toFixed(6)}, ${lon.toFixed(6)}${prec}`;
+
+            document.getElementById('paradero-nombre').value = '';
+            document.getElementById('paradero-micros').value = '';
+            document.getElementById('paradero-nota').value = '';
+
+            // Asegurar que el panel este abierto y visible
+            const panel = document.getElementById('paraderos-panel');
+            if (!panel.classList.contains('abierto')) toggleParaderos();
+            form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Sugerir el nombre con la direccion real (llega en un momento)
+            obtenerDireccion(lat, lon).then(dir => {
+                const campo = document.getElementById('paradero-nombre');
+                if (dir && paraderoPendiente && !campo.value) campo.value = dir;
+            });
+        }
+
+        function cancelarParadero() {
+            paraderoPendiente = null;
+            document.getElementById('paradero-form').classList.remove('visible');
+        }
+
+        async function guardarParadero() {
+            if (!paraderoPendiente) return;
+
+            const nombre = document.getElementById('paradero-nombre').value.trim();
+            const microsTexto = document.getElementById('paradero-micros').value.trim();
+            const nota = document.getElementById('paradero-nota').value.trim();
+
+            if (!nombre) {
+                mostrarToast('Ponle un nombre al paradero', 'error');
+                return;
+            }
+
+            // "3, 9 , 12" -> ["3","9","12"]
+            const micros = microsTexto
+                .split(/[,;/]+/)
+                .map(m => m.trim())
+                .filter(Boolean);
+
+            const id = 'par_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            const paradero = {
+                id, nombre, micros, nota,
+                lat: paraderoPendiente.lat,
+                lon: paraderoPendiente.lon,
+                creado: Date.now()
+            };
+
+            try {
+                await db.ref(`/paraderos/${id}`).set(paradero);
+                mostrarToast(`Paradero "${nombre}" guardado`, 'success');
+                cancelarParadero();
+            } catch (e) {
+                console.log('No se pudo guardar el paradero', e);
+                mostrarToast('No se pudo guardar', 'error');
+            }
+        }
+
+        window.borrarParadero = async function(id, evento) {
+            if (evento) evento.stopPropagation();
+            const p = paraderos.find(x => x.id === id);
+            if (!confirm(`¿Borrar el paradero "${p ? p.nombre : id}"?`)) return;
+            try {
+                await db.ref(`/paraderos/${id}`).remove();
+                mostrarToast('Paradero eliminado', 'warning');
+            } catch (e) {
+                mostrarToast('No se pudo borrar', 'error');
+            }
+        };
+
+        function renderizarParaderos() {
+            const lista = document.getElementById('paraderos-lista');
+            document.getElementById('paraderos-badge').textContent = paraderos.length || '';
+
+            if (paraderos.length === 0) {
+                lista.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.78rem;">Aún no hay paraderos. Marca el primero estando parado en él.</div>';
+                return;
+            }
+
+            lista.innerHTML = paraderos
+                .slice()
+                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                .map(p => `
+                    <div class="paradero-item" onclick="irAParadero('${p.id}')">
+                        <div style="font-size:1.1rem;">🚏</div>
+                        <div class="paradero-info">
+                            <div class="paradero-nombre">${p.nombre}</div>
+                            ${p.micros && p.micros.length
+                                ? `<div class="paradero-micros">${p.micros.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>`
+                                : '<div class="paradero-nota">Sin micros anotadas</div>'}
+                            ${p.nota ? `<div class="paradero-nota">${p.nota}</div>` : ''}
+                        </div>
+                        <button class="paradero-borrar" onclick="borrarParadero('${p.id}', event)" title="Borrar">✕</button>
+                    </div>
+                `).join('');
+        }
+
+        window.irAParadero = function(id) {
+            const p = paraderos.find(x => x.id === id);
+            if (!p) return;
+            desactivarSeguimiento();
+            moverMapa([p.lat, p.lon], 17);
+        };
+
+        function dibujarParaderosEnMapa() {
+            paraderosMarcadores.forEach(m => mapa.removeLayer(m));
+            paraderosMarcadores = [];
+
+            paraderos.forEach(p => {
+                const marcador = L.marker([p.lat, p.lon], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="width:26px;height:26px;border-radius:7px;background:#ffaa00;
+                                border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);
+                                display:flex;align-items:center;justify-content:center;font-size:13px;">🚏</div>`,
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    })
+                }).addTo(mapa);
+
+                const micros = (p.micros && p.micros.length)
+                    ? p.micros.map(m => `<b>${m}</b>`).join(' · ')
+                    : 'sin micros anotadas';
+                marcador.bindPopup(
+                    `<div style="font-family:Segoe UI,sans-serif;min-width:150px;">
+                        <div style="font-weight:700;margin-bottom:4px;">🚏 ${p.nombre}</div>
+                        <div style="font-size:0.85rem;color:#333;">Micros: ${micros}</div>
+                        ${p.nota ? `<div style="font-size:0.78rem;color:#666;margin-top:4px;">${p.nota}</div>` : ''}
+                    </div>`
+                );
+
+                paraderosMarcadores.push(marcador);
+            });
+        }
+
+        // Escuchar los paraderos en vivo (si los agregas desde el celular, aparecen aca)
+        db.ref('/paraderos').on('value', (snap) => {
+            const data = snap.val();
+            paraderos = data ? Object.values(data) : [];
+            renderizarParaderos();
+            dibujarParaderosEnMapa();
+        });
 
         // ===== PANEL DE EVENTOS =====
         let eventosCache = [];
@@ -3292,14 +3574,16 @@ window.eliminarZonaPopup = function() {
             const popup = document.createElement('div');
             popup.className = 'zona-popup';
             popup.innerHTML = `
-                <h4>🏠 Crear zona aquí</h4>
+                <h4>Crear aquí</h4>
                 <div class="popup-coords">${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}</div>
                 <input type="text" id="popup-nombre" placeholder="Nombre (ej: Casa)" autofocus>
                 <input type="number" id="popup-radio" placeholder="Radio en metros" value="200">
                 <div class="popup-btns">
                     <button class="popup-btn cancelar" onclick="window.cerrarPopupZona()">Cancelar</button>
-                    <button class="popup-btn crear" onclick="window.crearZonaDesdeMapa(${latlng.lat}, ${latlng.lng})">Crear</button>
+                    <button class="popup-btn crear" onclick="window.crearZonaDesdeMapa(${latlng.lat}, ${latlng.lng})">🏠 Zona</button>
                 </div>
+                <button class="popup-btn" style="width:100%;margin-top:7px;background:rgba(255,170,0,0.15);color:#ffaa00;border:1px solid rgba(255,170,0,0.25);"
+                        onclick="window.crearParaderoDesdeMapa(${latlng.lat}, ${latlng.lng})">🚏 Paradero aquí</button>
             `;
             
             const point = mapa.latLngToContainerPoint(latlng);
@@ -3314,6 +3598,11 @@ window.eliminarZonaPopup = function() {
                 if (input) input.focus();
             }, 100);
         }
+
+        window.crearParaderoDesdeMapa = function(lat, lon) {
+            window.cerrarPopupZona();
+            abrirFormularioParadero(lat, lon, null);
+        };
 
         window.cerrarPopupZona = function() {
             if (zonaPopup) {

@@ -1268,8 +1268,10 @@
                         <!-- 1. Ver por donde pasa una micro -->
                         <div class="micro-bloque">
                             <div class="micro-bloque-titulo">¿Por dónde pasa?</div>
-                            <select id="micro-ver" onchange="verRecorridoMicro()">
+                            <select id="micro-ver" onchange="cambiarMicroVer()">
                                 <option value="">— Elige una micro —</option>
+                            </select>
+                            <select id="micro-ver-sentido" onchange="verRecorridoMicro()" style="display:none;">
                             </select>
                             <div id="micro-ver-resultado" class="micro-resultado"></div>
                         </div>
@@ -2287,6 +2289,17 @@
         let capaRecorrido = null;   // polilinea del recorrido aproximado
         let marcadoresRecorrido = [];
 
+        // Referencia global de rutas (subida con los scripts de Python, datos
+        // reales de Moovit con coordenadas). Si existe para una micro+sentido,
+        // se usa en vez de la aproximacion por cercania de los paraderos propios.
+        let referenciaRutas = {};
+        db.ref('/referencia_rutas').on('value', (snap) => {
+            referenciaRutas = snap.val() || {};
+            if (document.getElementById('micros-panel')?.classList.contains('abierto')) {
+                poblarSelectoresMicros();
+            }
+        });
+
         function toggleMicros() {
             const panel = document.getElementById('micros-panel');
             const icon = document.getElementById('icon-micros-toggle');
@@ -2296,10 +2309,11 @@
             if (panel.classList.contains('abierto')) poblarSelectoresMicros();
         }
 
-        // Devuelve todas las micros distintas que aparecen en los paraderos
+        // Devuelve todas las micros distintas: las de tus paraderos + las de la referencia global
         function listarMicros() {
             const set = new Set();
             paraderos.forEach(p => (p.micros || []).forEach(m => set.add(m)));
+            Object.keys(referenciaRutas).forEach(m => set.add(m));
             // Orden natural: 3 antes que 21, y las que tienen letra al final
             return [...set].sort((a, b) => {
                 const na = parseInt(a), nb = parseInt(b);
@@ -2321,6 +2335,7 @@
             selVer.innerHTML = '<option value="">— Elige una micro —</option>' +
                 micros.map(m => `<option value="${m}">Micro ${m} (${paraderosDeMicro(m).length} paraderos)</option>`).join('');
             selVer.value = prevVer;
+            cambiarMicroVer();
 
             const opcionesPar = paraderos
                 .slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
@@ -2371,17 +2386,99 @@
             return orden;
         }
 
+        // Al elegir una micro, si hay referencia real con mas de un sentido
+        // cargado, mostrar el selector de sentido. Si no, ir directo.
+        function cambiarMicroVer() {
+            const micro = document.getElementById('micro-ver').value;
+            const selSentido = document.getElementById('micro-ver-sentido');
+            const sentidos = micro ? Object.keys(referenciaRutas[micro] || {}) : [];
+
+            if (sentidos.length > 0) {
+                const etiquetas = { norte_sur: '➡️ Norte → Sur', sur_norte: '⬅️ Sur → Norte' };
+                selSentido.innerHTML = sentidos.map(s => `<option value="${s}">${etiquetas[s] || s}</option>`).join('');
+                selSentido.style.display = '';
+            } else {
+                selSentido.innerHTML = '';
+                selSentido.style.display = 'none';
+            }
+            verRecorridoMicro();
+        }
+
         function verRecorridoMicro() {
             const micro = document.getElementById('micro-ver').value;
+            const sentido = document.getElementById('micro-ver-sentido').value;
             const cont = document.getElementById('micro-ver-resultado');
             limpiarRecorrido();
 
             if (!micro) { cont.innerHTML = ''; return; }
 
+            const referencia = referenciaRutas[micro] && referenciaRutas[micro][sentido];
+
+            if (referencia && referencia.length > 0) {
+                dibujarRecorridoReal(micro, sentido, referencia);
+            } else {
+                dibujarRecorridoAproximado(micro);
+            }
+        }
+
+        // Dibuja el recorrido REAL (datos de Moovit con coordenadas), en el
+        // orden verdadero de las paradas - no es una aproximacion.
+        function dibujarRecorridoReal(micro, sentido, paradasRef) {
+            const cont = document.getElementById('micro-ver-resultado');
+            const ordenadas = paradasRef.slice().sort((a, b) => a.orden - b.orden);
+            const puntos = ordenadas.map(p => [p.lat, p.lon]);
+
+            capaRecorrido = L.polyline(puntos, {
+                color: '#00d4ff', weight: 4, opacity: 0.8
+            }).addTo(mapa);
+
+            // Puntitos chicos en cada parada real de Moovit
+            ordenadas.forEach(p => {
+                const c = L.circleMarker([p.lat, p.lon], {
+                    radius: 3, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.8, weight: 1
+                }).addTo(mapa);
+                c.bindTooltip(p.nombre, { direction: 'top' });
+                marcadoresRecorrido.push(c);
+            });
+
+            // Resaltar los paraderos PROPIOS que coinciden con esta micro+sentido
+            const campoSentido = sentido === 'norte_sur' ? 'micros_norte_sur' : 'micros_sur_norte';
+            const propios = paraderos.filter(p => (p[campoSentido] || []).includes(micro));
+            propios.forEach(p => {
+                const m = L.marker([p.lat, p.lon], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="width:28px;height:28px;border-radius:50%;background:#ffaa00;
+                                border:3px solid #fff;box-shadow:0 0 12px #ffaa00;color:#0a0a14;
+                                display:flex;align-items:center;justify-content:center;font-size:14px;">🚏</div>`,
+                        iconSize: [28, 28], iconAnchor: [14, 14]
+                    })
+                }).addTo(mapa);
+                m.bindPopup(`<b>${p.nombre}</b><br>Micro ${micro} confirmada`);
+                marcadoresRecorrido.push(m);
+            });
+
+            desactivarSeguimiento();
+            movimientoProgramatico = true;
+            mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.15));
+            setTimeout(() => { movimientoProgramatico = false; }, 600);
+
+            const etiquetaSentido = sentido === 'norte_sur' ? 'Norte → Sur' : 'Sur → Norte';
+            cont.innerHTML = `
+                <div class="micro-exito" style="margin-bottom:0;">
+                    ✅ Recorrido real (${etiquetaSentido}): ${ordenadas.length} paradas.
+                    ${propios.length ? `<br>De esas, <b>${propios.length}</b> son paraderos tuyos confirmados (🚏 naranjo en el mapa).` : ''}
+                </div>
+            `;
+        }
+
+        // Aproximacion anterior: solo con los paraderos propios, ordenados por
+        // cercania (se usa si todavia no hay referencia real para esa micro).
+        function dibujarRecorridoAproximado(micro) {
+            const cont = document.getElementById('micro-ver-resultado');
             const lista = ordenarPorCercania(paraderosDeMicro(micro));
             if (lista.length === 0) { cont.innerHTML = '<div class="micro-fallo">Sin paraderos para esa micro</div>'; return; }
 
-            // Dibujar los paraderos numerados y unirlos con una linea
             const puntos = lista.map(p => [p.lat, p.lon]);
             if (puntos.length > 1) {
                 capaRecorrido = L.polyline(puntos, {
@@ -2420,7 +2517,7 @@
                         <span class="num">${i + 1}</span>
                         <span>${p.nombre}</span>
                     </div>`).join('')}
-                <div class="micro-nota-aprox">La línea del mapa es aproximada: une los paraderos que tienes cargados, no el recorrido real calle por calle.</div>
+                <div class="micro-nota-aprox">Sin referencia real todavía para esta micro: la línea es aproximada, une solo tus paraderos cargados.</div>
             `;
         }
 

@@ -983,6 +983,17 @@
             font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);
             margin-bottom: 7px;
         }
+        .paradero-form-label {
+            display: block; font-size: 0.68rem; color: var(--text-secondary);
+            margin: 6px 0 3px; font-weight: 600;
+        }
+        .paradero-grupo-sentido { margin-top: 4px; }
+        .paradero-grupo-titulo {
+            font-size: 0.63rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin: 5px 0 3px;
+        }
+        .micro-chip.sc { background: rgba(255,255,255,0.06); color: var(--text-muted); }
         .paradero-editar {
             background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.18);
             font-size: 0.72rem; line-height: 1;
@@ -1308,7 +1319,16 @@
                             <div class="paradero-form-titulo" id="paradero-form-titulo">🚏 Nuevo paradero</div>
                             <div class="paradero-form-coords" id="paradero-form-coords">--</div>
                             <input type="text" id="paradero-nombre" placeholder="Nombre (ej: Paradero Plaza)">
-                            <input type="text" id="paradero-micros" placeholder="Micros: 3, 9, 12">
+
+                            <label class="paradero-form-label">➡️ Micros Norte → Sur</label>
+                            <input type="text" id="paradero-micros-ns" placeholder="Ej: 103, 129">
+
+                            <label class="paradero-form-label">⬅️ Micros Sur → Norte</label>
+                            <input type="text" id="paradero-micros-sn" placeholder="Ej: 121, 103">
+
+                            <label class="paradero-form-label">❓ Otras (sentido sin confirmar aún)</label>
+                            <input type="text" id="paradero-micros-sc" placeholder="Micros que pasan pero no sabes el sentido">
+
                             <input type="text" id="paradero-nota" placeholder="Nota (opcional: hacia el centro, etc)">
                             <div class="paradero-form-btns">
                                 <button class="popup-btn cancelar" onclick="cancelarParadero()">Cancelar</button>
@@ -2548,7 +2568,9 @@
                 `${lat.toFixed(6)}, ${lon.toFixed(6)}${prec}`;
 
             document.getElementById('paradero-nombre').value = '';
-            document.getElementById('paradero-micros').value = '';
+            document.getElementById('paradero-micros-ns').value = '';
+            document.getElementById('paradero-micros-sn').value = '';
+            document.getElementById('paradero-micros-sc').value = '';
             document.getElementById('paradero-nota').value = '';
 
             // Asegurar que el panel este abierto y visible
@@ -2580,7 +2602,14 @@
             document.getElementById('paradero-form-coords').textContent =
                 `${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
             document.getElementById('paradero-nombre').value = p.nombre || '';
-            document.getElementById('paradero-micros').value = (p.micros || []).join(', ');
+            document.getElementById('paradero-micros-ns').value = (p.micros_norte_sur || []).join(', ');
+            document.getElementById('paradero-micros-sn').value = (p.micros_sur_norte || []).join(', ');
+            // Compatibilidad: paraderos creados antes de este cambio solo tenian
+            // 'micros' plano sin sentido. Esas quedan en "sin confirmar" para
+            // que las vayas repartiendo en las 2 cajas de arriba cuando confirmes.
+            const sinConfirmarPrevio = p.micros_sin_confirmar ||
+                (p.micros || []).filter(m => !(p.micros_norte_sur || []).includes(m) && !(p.micros_sur_norte || []).includes(m));
+            document.getElementById('paradero-micros-sc').value = sinConfirmarPrevio.join(', ');
             document.getElementById('paradero-nota').value = p.nota || '';
 
             const panel = document.getElementById('paraderos-panel');
@@ -2612,11 +2641,17 @@
             document.getElementById('paradero-form').classList.remove('visible');
         }
 
+        function parsearMicros(texto) {
+            return texto.trim()
+                .split(/[,;/]+/)
+                .map(m => m.trim())
+                .filter(Boolean);
+        }
+
         async function guardarParadero() {
             if (!paraderoPendiente) return;
 
             const nombre = document.getElementById('paradero-nombre').value.trim();
-            const microsTexto = document.getElementById('paradero-micros').value.trim();
             const nota = document.getElementById('paradero-nota').value.trim();
 
             if (!nombre) {
@@ -2624,11 +2659,14 @@
                 return;
             }
 
-            // "3, 9 , 12" -> ["3","9","12"]
-            const micros = microsTexto
-                .split(/[,;/]+/)
-                .map(m => m.trim())
-                .filter(Boolean);
+            const microsNorteSur = parsearMicros(document.getElementById('paradero-micros-ns').value);
+            const microsSurNorte = parsearMicros(document.getElementById('paradero-micros-sn').value);
+            const microsSinConfirmar = parsearMicros(document.getElementById('paradero-micros-sc').value);
+
+            // 'micros' se mantiene como la union de las 3, SOLO para que el resto
+            // del sistema (buscar micro, que micro me sirve, etc) siga funcionando
+            // igual sin importar si el sentido ya esta confirmado o no.
+            const micros = [...new Set([...microsNorteSur, ...microsSurNorte, ...microsSinConfirmar])];
 
             // Si se esta editando, se conserva el id y la fecha original
             const editando = !!paraderoEditandoId;
@@ -2638,6 +2676,9 @@
 
             const paradero = {
                 id, nombre, micros, nota,
+                micros_norte_sur: microsNorteSur,
+                micros_sur_norte: microsSurNorte,
+                micros_sin_confirmar: microsSinConfirmar,
                 lat: paraderoPendiente.lat,
                 lon: paraderoPendiente.lon,
                 creado: (previo && previo.creado) ? previo.creado : Date.now()
@@ -2666,6 +2707,37 @@
             }
         };
 
+        // Genera el HTML de los grupos de chips por sentido, reusado en la lista y en el mapa
+        function chipsPorSentidoHTML(p) {
+            const ns = p.micros_norte_sur || [];
+            const sn = p.micros_sur_norte || [];
+            // Compatibilidad: paraderos viejos sin sentido -> todas van a "sin confirmar"
+            const sc = p.micros_sin_confirmar ||
+                (p.micros || []).filter(m => !ns.includes(m) && !sn.includes(m));
+
+            if (!ns.length && !sn.length && !sc.length) {
+                return '<div class="paradero-nota">Sin micros anotadas</div>';
+            }
+
+            let html = '';
+            if (ns.length) html += `
+                <div class="paradero-grupo-sentido">
+                    <div class="paradero-grupo-titulo">➡️ Norte → Sur</div>
+                    <div class="paradero-micros">${ns.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
+                </div>`;
+            if (sn.length) html += `
+                <div class="paradero-grupo-sentido">
+                    <div class="paradero-grupo-titulo">⬅️ Sur → Norte</div>
+                    <div class="paradero-micros">${sn.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
+                </div>`;
+            if (sc.length) html += `
+                <div class="paradero-grupo-sentido">
+                    <div class="paradero-grupo-titulo">❓ Sin confirmar</div>
+                    <div class="paradero-micros">${sc.map(m => `<span class="micro-chip sc">${m}</span>`).join('')}</div>
+                </div>`;
+            return html;
+        }
+
         function renderizarParaderos() {
             const lista = document.getElementById('paraderos-lista');
             document.getElementById('paraderos-badge').textContent = paraderos.length || '';
@@ -2683,9 +2755,7 @@
                         <div style="font-size:1.1rem;">🚏</div>
                         <div class="paradero-info">
                             <div class="paradero-nombre">${p.nombre}</div>
-                            ${p.micros && p.micros.length
-                                ? `<div class="paradero-micros">${p.micros.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>`
-                                : '<div class="paradero-nota">Sin micros anotadas</div>'}
+                            ${chipsPorSentidoHTML(p)}
                             ${p.nota ? `<div class="paradero-nota">${p.nota}</div>` : ''}
                         </div>
                         <button class="paradero-editar" onclick="editarParadero('${p.id}', event)" title="Editar">✏️</button>
@@ -2717,13 +2787,19 @@
                     })
                 }).addTo(mapa);
 
-                const micros = (p.micros && p.micros.length)
-                    ? p.micros.map(m => `<b>${m}</b>`).join(' · ')
-                    : 'sin micros anotadas';
+                const ns = p.micros_norte_sur || [];
+                const sn = p.micros_sur_norte || [];
+                const sc = p.micros_sin_confirmar || (p.micros || []).filter(m => !ns.includes(m) && !sn.includes(m));
+                let lineasMicros = '';
+                if (ns.length) lineasMicros += `<div>➡️ Norte→Sur: <b>${ns.join(', ')}</b></div>`;
+                if (sn.length) lineasMicros += `<div>⬅️ Sur→Norte: <b>${sn.join(', ')}</b></div>`;
+                if (sc.length) lineasMicros += `<div style="color:#999;">❓ Sin confirmar: ${sc.join(', ')}</div>`;
+                if (!lineasMicros) lineasMicros = '<div>Sin micros anotadas</div>';
+
                 marcador.bindPopup(
-                    `<div style="font-family:Segoe UI,sans-serif;min-width:150px;">
+                    `<div style="font-family:Segoe UI,sans-serif;min-width:170px;">
                         <div style="font-weight:700;margin-bottom:4px;">🚏 ${p.nombre}</div>
-                        <div style="font-size:0.85rem;color:#333;">Micros: ${micros}</div>
+                        <div style="font-size:0.82rem;color:#333;line-height:1.5;">${lineasMicros}</div>
                         ${p.nota ? `<div style="font-size:0.78rem;color:#666;margin-top:4px;">${p.nota}</div>` : ''}
                     </div>`
                 );

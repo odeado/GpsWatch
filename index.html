@@ -864,6 +864,64 @@
         }
         .eventos-badge:empty { display: none; }
 
+        /* ===== MICROS Y RECORRIDOS ===== */
+        .micros-panel {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+        .micros-panel.abierto { max-height: 620px; opacity: 1; margin-top: 12px; overflow-y: auto; }
+        .micro-bloque {
+            background: rgba(0,0,0,0.14); border-radius: 12px;
+            padding: 11px; margin-bottom: 9px;
+        }
+        .micro-bloque-titulo {
+            font-size: 0.72rem; font-weight: 700; color: var(--accent-cyan);
+            margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .micro-bloque select {
+            width: 100%; padding: 9px 11px; margin-bottom: 7px;
+            border-radius: 9px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.28); color: var(--text-primary);
+            font-size: 0.8rem; outline: none;
+        }
+        .micro-bloque select:focus { border-color: var(--accent-cyan); }
+        .micro-bloque select:last-of-type { margin-bottom: 0; }
+        .micro-resultado {
+            font-size: 0.78rem; color: var(--text-secondary);
+            line-height: 1.5; margin-top: 8px;
+        }
+        .micro-resultado:empty { display: none; }
+        .micro-paradero-linea {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 8px; border-radius: 8px;
+            background: rgba(0,0,0,0.18); margin-bottom: 5px;
+            cursor: pointer; font-size: 0.76rem;
+        }
+        .micro-paradero-linea:hover { background: rgba(0,0,0,0.3); }
+        .micro-paradero-linea .num {
+            background: rgba(255,170,0,0.18); color: var(--accent-orange);
+            width: 20px; height: 20px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+        }
+        .micro-paradero-linea .dist {
+            margin-left: auto; color: var(--accent-orange);
+            font-family: 'SF Mono', monospace; font-size: 0.72rem; flex-shrink: 0;
+        }
+        .micro-exito {
+            background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.22);
+            border-radius: 9px; padding: 9px; color: var(--accent-green);
+        }
+        .micro-fallo {
+            background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.2);
+            border-radius: 9px; padding: 9px; color: var(--accent-orange);
+        }
+        .micro-nota-aprox {
+            font-size: 0.66rem; color: var(--text-muted);
+            margin-top: 6px; line-height: 1.4;
+        }
+
         /* ===== PARADEROS ===== */
         .paraderos-panel {
             max-height: 0; overflow: hidden;
@@ -1184,6 +1242,48 @@
                         <div id="resumen-contenido">
                             <div style="color:var(--text-muted);text-align:center;padding:14px;font-size:0.8rem;">Abre este panel para ver el resumen</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Micros y recorridos -->
+                <div class="card">
+                    <div class="card-title" style="cursor:pointer;" onclick="toggleMicros()">
+                        🚌 Micros
+                        <span id="micros-badge" class="eventos-badge"></span>
+                        <svg class="icon" id="icon-micros-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
+                    </div>
+                    <div class="micros-panel" id="micros-panel">
+
+                        <!-- 1. Ver por donde pasa una micro -->
+                        <div class="micro-bloque">
+                            <div class="micro-bloque-titulo">¿Por dónde pasa?</div>
+                            <select id="micro-ver" onchange="verRecorridoMicro()">
+                                <option value="">— Elige una micro —</option>
+                            </select>
+                            <div id="micro-ver-resultado" class="micro-resultado"></div>
+                        </div>
+
+                        <!-- 2. Que micro sirve para ir de A a B -->
+                        <div class="micro-bloque">
+                            <div class="micro-bloque-titulo">¿Qué micro me sirve?</div>
+                            <select id="micro-desde" onchange="buscarMicroEntre()">
+                                <option value="">— Desde —</option>
+                            </select>
+                            <select id="micro-hasta" onchange="buscarMicroEntre()">
+                                <option value="">— Hasta —</option>
+                            </select>
+                            <div id="micro-ruta-resultado" class="micro-resultado"></div>
+                        </div>
+
+                        <!-- 3. Paraderos cerca de alguien -->
+                        <div class="micro-bloque">
+                            <div class="micro-bloque-titulo">Paraderos cerca de alguien</div>
+                            <select id="micro-cerca-de" onchange="paraderosCercaDe()">
+                                <option value="">— Elige a quién —</option>
+                            </select>
+                            <div id="micro-cerca-resultado" class="micro-resultado"></div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -2162,6 +2262,244 @@
             cont.innerHTML = html;
         }
 
+        // ===== MICROS Y RECORRIDOS =====
+        // Todo esto se deduce de los paraderos cargados a mano.
+        let capaRecorrido = null;   // polilinea del recorrido aproximado
+        let marcadoresRecorrido = [];
+
+        function toggleMicros() {
+            const panel = document.getElementById('micros-panel');
+            const icon = document.getElementById('icon-micros-toggle');
+            panel.classList.toggle('abierto');
+            const use = icon.querySelector('use');
+            use.setAttribute('href', panel.classList.contains('abierto') ? '#icon-chevron-up' : '#icon-chevron-down');
+            if (panel.classList.contains('abierto')) poblarSelectoresMicros();
+        }
+
+        // Devuelve todas las micros distintas que aparecen en los paraderos
+        function listarMicros() {
+            const set = new Set();
+            paraderos.forEach(p => (p.micros || []).forEach(m => set.add(m)));
+            // Orden natural: 3 antes que 21, y las que tienen letra al final
+            return [...set].sort((a, b) => {
+                const na = parseInt(a), nb = parseInt(b);
+                if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                return a.localeCompare(b);
+            });
+        }
+
+        function paraderosDeMicro(micro) {
+            return paraderos.filter(p => (p.micros || []).includes(micro));
+        }
+
+        function poblarSelectoresMicros() {
+            const micros = listarMicros();
+            document.getElementById('micros-badge').textContent = micros.length || '';
+
+            const selVer = document.getElementById('micro-ver');
+            const prevVer = selVer.value;
+            selVer.innerHTML = '<option value="">— Elige una micro —</option>' +
+                micros.map(m => `<option value="${m}">Micro ${m} (${paraderosDeMicro(m).length} paraderos)</option>`).join('');
+            selVer.value = prevVer;
+
+            const opcionesPar = paraderos
+                .slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
+                .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+
+            const selDesde = document.getElementById('micro-desde');
+            const selHasta = document.getElementById('micro-hasta');
+            const pd = selDesde.value, ph = selHasta.value;
+            selDesde.innerHTML = '<option value="">— Desde —</option>' + opcionesPar;
+            selHasta.innerHTML = '<option value="">— Hasta —</option>' + opcionesPar;
+            selDesde.value = pd; selHasta.value = ph;
+
+            const selCerca = document.getElementById('micro-cerca-de');
+            const pc = selCerca.value;
+            selCerca.innerHTML = '<option value="">— Elige a quién —</option>' +
+                Object.keys(dispositivos).map(id => {
+                    const c = obtenerConfigDispositivo(id);
+                    return `<option value="${id}">${c.emoji} ${c.nombre}</option>`;
+                }).join('');
+            selCerca.value = pc;
+        }
+
+        function limpiarRecorrido() {
+            if (capaRecorrido) { mapa.removeLayer(capaRecorrido); capaRecorrido = null; }
+            marcadoresRecorrido.forEach(m => mapa.removeLayer(m));
+            marcadoresRecorrido = [];
+        }
+
+        // Ordena los paraderos formando una cadena: parte del mas al sur/oeste y
+        // va tomando el vecino mas cercano. Es una APROXIMACION: no conocemos el
+        // orden real del recorrido, solo los puntos por donde pasa.
+        function ordenarPorCercania(lista) {
+            if (lista.length < 3) return lista.slice();
+            const restantes = lista.slice();
+            // Punto de partida: el mas al suroeste
+            restantes.sort((a, b) => (a.lat + a.lon) - (b.lat + b.lon));
+            const orden = [restantes.shift()];
+
+            while (restantes.length) {
+                const ult = orden[orden.length - 1];
+                let mejor = 0, mejorDist = Infinity;
+                restantes.forEach((p, i) => {
+                    const d = mapa.distance([ult.lat, ult.lon], [p.lat, p.lon]);
+                    if (d < mejorDist) { mejorDist = d; mejor = i; }
+                });
+                orden.push(restantes.splice(mejor, 1)[0]);
+            }
+            return orden;
+        }
+
+        function verRecorridoMicro() {
+            const micro = document.getElementById('micro-ver').value;
+            const cont = document.getElementById('micro-ver-resultado');
+            limpiarRecorrido();
+
+            if (!micro) { cont.innerHTML = ''; return; }
+
+            const lista = ordenarPorCercania(paraderosDeMicro(micro));
+            if (lista.length === 0) { cont.innerHTML = '<div class="micro-fallo">Sin paraderos para esa micro</div>'; return; }
+
+            // Dibujar los paraderos numerados y unirlos con una linea
+            const puntos = lista.map(p => [p.lat, p.lon]);
+            if (puntos.length > 1) {
+                capaRecorrido = L.polyline(puntos, {
+                    color: '#ffaa00', weight: 4, opacity: 0.75, dashArray: '10, 6'
+                }).addTo(mapa);
+            }
+
+            lista.forEach((p, i) => {
+                const m = L.marker([p.lat, p.lon], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="width:26px;height:26px;border-radius:50%;background:#ffaa00;
+                                border:3px solid #fff;box-shadow:0 0 10px #ffaa00;color:#0a0a14;
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:12px;font-weight:800;">${i + 1}</div>`,
+                        iconSize: [26, 26], iconAnchor: [13, 13]
+                    })
+                }).addTo(mapa);
+                m.bindPopup(`<b>${i + 1}. ${p.nombre}</b><br>Micro ${micro}`);
+                marcadoresRecorrido.push(m);
+            });
+
+            desactivarSeguimiento();
+            if (puntos.length === 1) {
+                moverMapa(puntos[0], 16);
+            } else {
+                movimientoProgramatico = true;
+                mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.25));
+                setTimeout(() => { movimientoProgramatico = false; }, 600);
+            }
+
+            cont.innerHTML = `
+                <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
+                ${lista.map((p, i) => `
+                    <div class="micro-paradero-linea" onclick="irAParadero('${p.id}')">
+                        <span class="num">${i + 1}</span>
+                        <span>${p.nombre}</span>
+                    </div>`).join('')}
+                <div class="micro-nota-aprox">La línea del mapa es aproximada: une los paraderos que tienes cargados, no el recorrido real calle por calle.</div>
+            `;
+        }
+
+        function buscarMicroEntre() {
+            const idDesde = document.getElementById('micro-desde').value;
+            const idHasta = document.getElementById('micro-hasta').value;
+            const cont = document.getElementById('micro-ruta-resultado');
+
+            if (!idDesde || !idHasta) { cont.innerHTML = ''; return; }
+            if (idDesde === idHasta) {
+                cont.innerHTML = '<div class="micro-fallo">Elige dos paraderos distintos</div>';
+                return;
+            }
+
+            const a = paraderos.find(p => p.id === idDesde);
+            const b = paraderos.find(p => p.id === idHasta);
+            if (!a || !b) { cont.innerHTML = ''; return; }
+
+            const microsA = a.micros || [];
+            const microsB = b.micros || [];
+            const comunes = microsA.filter(m => microsB.includes(m));
+            const distancia = mapa.distance([a.lat, a.lon], [b.lat, b.lon]);
+            const km = (distancia / 1000).toFixed(2);
+
+            if (comunes.length > 0) {
+                cont.innerHTML = `
+                    <div class="micro-exito">
+                        <div style="font-weight:700;margin-bottom:5px;">✅ Te sirve${comunes.length > 1 ? 'n' : ''}:</div>
+                        <div class="paradero-micros">${comunes.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
+                        <div style="font-size:0.72rem;margin-top:6px;opacity:0.85;">Directo, sin transbordo · ${km} km entre paraderos</div>
+                    </div>`;
+            } else {
+                // Buscar un transbordo: un paradero intermedio que conecte ambos
+                const opciones = [];
+                paraderos.forEach(p => {
+                    if (p.id === a.id || p.id === b.id) return;
+                    const mp = p.micros || [];
+                    const conA = mp.filter(m => microsA.includes(m));
+                    const conB = mp.filter(m => microsB.includes(m));
+                    if (conA.length && conB.length) opciones.push({ p, conA, conB });
+                });
+
+                if (opciones.length > 0) {
+                    const o = opciones[0];
+                    cont.innerHTML = `
+                        <div class="micro-fallo">
+                            <div style="font-weight:700;margin-bottom:5px;">🔄 Sin micro directa, pero con transbordo:</div>
+                            <div style="font-size:0.75rem;line-height:1.6;">
+                                Toma la <b>${o.conA.join(' o ')}</b> hasta <b>${o.p.nombre}</b>,<br>
+                                y de ahí la <b>${o.conB.join(' o ')}</b>.
+                            </div>
+                            <div style="font-size:0.72rem;margin-top:6px;opacity:0.85;">${km} km entre paraderos</div>
+                        </div>`;
+                } else {
+                    cont.innerHTML = `
+                        <div class="micro-fallo">
+                            ❌ No hay micro en común con los datos que tienes.
+                            <div class="micro-nota-aprox">Puede que sí exista una: falta cargar más paraderos o más micros en los que ya tienes.</div>
+                        </div>`;
+                }
+            }
+        }
+
+        function paraderosCercaDe() {
+            const id = document.getElementById('micro-cerca-de').value;
+            const cont = document.getElementById('micro-cerca-resultado');
+
+            if (!id || !dispositivos[id]) { cont.innerHTML = ''; return; }
+            const d = dispositivos[id];
+            const config = obtenerConfigDispositivo(id);
+
+            if (paraderos.length === 0) {
+                cont.innerHTML = '<div class="micro-fallo">Aún no hay paraderos cargados</div>';
+                return;
+            }
+
+            const conDistancia = paraderos.map(p => ({
+                p, dist: mapa.distance([d.lat, d.lon], [p.lat, p.lon])
+            })).sort((x, y) => x.dist - y.dist).slice(0, 5);
+
+            cont.innerHTML = `
+                <div style="margin-bottom:7px;">Más cercanos a ${config.emoji} <b>${config.nombre}</b>:</div>
+                ${conDistancia.map((x, i) => {
+                    const texto = x.dist < 1000 ? `${Math.round(x.dist)} m` : `${(x.dist / 1000).toFixed(1)} km`;
+                    const micros = (x.p.micros || []).slice(0, 4).join(', ') || 'sin micros';
+                    return `
+                        <div class="micro-paradero-linea" onclick="irAParadero('${x.p.id}')">
+                            <span class="num">${i + 1}</span>
+                            <span style="min-width:0;">
+                                <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.p.nombre}</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);">${micros}</div>
+                            </span>
+                            <span class="dist">${texto}</span>
+                        </div>`;
+                }).join('')}
+                <div class="micro-nota-aprox">Distancias en línea recta, no caminando.</div>
+            `;
+        }
+
         // ===== PARADEROS DE MICRO =====
         // Base de datos propia, alimentada a mano estando parado en cada paradero.
         // Se guardan en /paraderos de Firebase, asi los ve cualquier dispositivo.
@@ -2400,6 +2738,8 @@
             paraderos = data ? Object.values(data) : [];
             renderizarParaderos();
             dibujarParaderosEnMapa();
+            // Refrescar tambien los selectores de la seccion de micros
+            if (document.getElementById('micros-panel')) poblarSelectoresMicros();
         });
 
         // ===== PANEL DE EVENTOS =====

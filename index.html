@@ -1011,8 +1011,37 @@
 
         /* ===== PILDORA DE SEGUIMIENTO ===== */
         .map-card { position: relative; }
+        /* ===== BUSCADOR DE DIRECCION ===== */
+        .buscador-direccion {
+            position: absolute; top: 12px; left: 12px; right: 12px;
+            z-index: 900;
+            display: flex; gap: 6px;
+            max-width: 420px; margin: 0 auto;
+        }
+        .buscador-direccion input {
+            flex: 1; min-width: 0;
+            background: rgba(10,10,20,0.92);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 9px 12px; border-radius: 12px;
+            font-size: 0.82rem; outline: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        .buscador-direccion input:focus { border-color: var(--accent-cyan); }
+        .buscador-direccion input::placeholder { color: var(--text-muted); }
+        .buscador-direccion button {
+            background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3);
+            color: var(--accent-cyan); font-weight: 600; font-size: 0.8rem;
+            padding: 9px 14px; border-radius: 12px; cursor: pointer;
+            backdrop-filter: blur(10px); flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .buscador-direccion button:hover { background: rgba(0,212,255,0.25); }
+        .buscador-direccion button:disabled { opacity: 0.5; cursor: default; }
+
         .pildora-seguimiento {
-            position: absolute; top: 12px; left: 50%;
+            position: absolute; top: 62px; left: 50%;
             transform: translateX(-50%);
             z-index: 800;
             background: rgba(10,10,20,0.88);
@@ -1218,6 +1247,11 @@
 
             <!-- Mapa -->
             <div class="card map-card" style="padding: 0; overflow: hidden;">
+                <div class="buscador-direccion" id="buscador-direccion">
+                    <input type="text" id="buscar-direccion-input" placeholder="🔍 Buscar dirección o calle..."
+                           onkeypress="if(event.key==='Enter'){ event.preventDefault(); buscarDireccion(); }">
+                    <button onclick="buscarDireccion()" id="btn-buscar-direccion">Buscar</button>
+                </div>
                 <div class="pildora-seguimiento" id="pildora-seguimiento" onclick="alternarSeguimiento()"></div>
                 <div id="mapa"></div>
             </div>
@@ -4183,6 +4217,76 @@ window.eliminarZonaPopup = function() {
             window.cerrarPopupZona();
             abrirFormularioParadero(lat, lon, null);
         };
+
+        // ===== BUSCADOR DE DIRECCION (basado en el mapa) =====
+        let marcadorBusqueda = null;
+        let buscandoDireccion = false;
+
+        async function buscarDireccion() {
+            const input = document.getElementById('buscar-direccion-input');
+            const texto = input.value.trim();
+            if (!texto) return;
+            if (buscandoDireccion) return; // evitar doble click mientras espera
+
+            buscandoDireccion = true;
+            const btn = document.getElementById('btn-buscar-direccion');
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            try {
+                const resp = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&` +
+                    `q=${encodeURIComponent(texto + ', Antofagasta, Chile')}`,
+                    { headers: { 'Accept-Language': 'es' } }
+                );
+                const datos = await resp.json();
+
+                if (!datos || datos.length === 0) {
+                    mostrarToast('No se encontró esa dirección', 'error');
+                    return;
+                }
+
+                const lat = parseFloat(datos[0].lat);
+                const lon = parseFloat(datos[0].lon);
+                mostrarResultadoBusqueda(lat, lon, datos[0].display_name || texto);
+            } catch (e) {
+                console.log('Error buscando dirección', e);
+                mostrarToast('No se pudo buscar (revisa tu conexión)', 'error');
+            } finally {
+                buscandoDireccion = false;
+                btn.disabled = false;
+                btn.textContent = 'Buscar';
+            }
+        }
+
+        function mostrarResultadoBusqueda(lat, lon, nombre) {
+            if (marcadorBusqueda) mapa.removeLayer(marcadorBusqueda);
+
+            marcadorBusqueda = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: '',
+                    html: `<div style="width:30px;height:30px;border-radius:50%;background:#00d4ff;
+                            border:3px solid #fff;box-shadow:0 0 14px #00d4ff;
+                            display:flex;align-items:center;justify-content:center;font-size:14px;">🔍</div>`,
+                    iconSize: [30, 30], iconAnchor: [15, 15]
+                })
+            }).addTo(mapa);
+
+            const nombreCorto = nombre.split(',').slice(0, 3).join(',');
+            marcadorBusqueda.bindPopup(`
+                <div style="font-family:Segoe UI,sans-serif;min-width:190px;">
+                    <div style="font-weight:700;margin-bottom:8px;font-size:0.85rem;">${nombreCorto}</div>
+                    <button onclick="window.crearParaderoDesdeMapa(${lat}, ${lon})"
+                            style="width:100%;padding:9px;border:none;border-radius:9px;
+                            background:#ffaa00;color:#0a0a14;font-weight:700;cursor:pointer;font-size:0.8rem;">
+                        🚏 Crear paradero aquí
+                    </button>
+                </div>
+            `).openPopup();
+
+            desactivarSeguimiento();
+            moverMapa([lat, lon], 17);
+        }
 
         window.cerrarPopupZona = function() {
             if (zonaPopup) {

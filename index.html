@@ -513,6 +513,23 @@
     backdrop-filter: blur(10px);
     animation: fadeInUp 0.2s ease;
 }
+/* En pantallas chicas, centrado fijo SIEMPRE - sin importar donde se toco
+   el mapa, para que nunca se corten los botones contra el borde. El
+   !important es necesario porque el JS pone left/top como estilo inline
+   segun el punto tocado, y esto debe ganarle a eso solo en movil. */
+@media (max-width: 640px) {
+    .zona-popup {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        width: calc(100vw - 40px);
+        max-width: 320px;
+        min-width: 0;
+    }
+}
 .zona-popup h4 {
     color: var(--accent-cyan);
     margin: 0 0 10px;

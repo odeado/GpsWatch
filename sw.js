@@ -4,7 +4,11 @@
 // mapas o Nominatim - siempre van a la red, para no mostrar ubicaciones
 // viejas guardadas por error.
 
-const CACHE_NAME = 'gps-tracker-v1';
+// v2: el index.html ahora es "red primero" (antes era "cache primero" y
+// se quedaba pegado mostrando versiones viejas cada vez que actualizabamos
+// el codigo, aunque ya estuviera subido a GitHub). El resto del shell
+// (iconos, manifest) si sigue cache-primero porque cambia poco.
+const CACHE_NAME = 'gps-tracker-v2';
 const ARCHIVOS_APP = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -32,12 +36,28 @@ self.addEventListener('fetch', (event) => {
     const esArchivoDelShell = url.origin === self.location.origin &&
         ARCHIVOS_APP.some(a => url.pathname.endsWith(a.replace('./', '')) || (a === './' && url.pathname.endsWith('/')));
 
-    if (esArchivoDelShell) {
-        // Shell de la app: intenta cache primero (rapido), si no existe va a la red
+    if (!esArchivoDelShell) return; // Firebase, mapas, Nominatim: sin tocar, siempre a la red
+
+    const esHTML = event.request.mode === 'navigate' ||
+        url.pathname.endsWith('index.html') ||
+        url.pathname.endsWith('/');
+
+    if (esHTML) {
+        // RED PRIMERO: siempre intenta traer la version mas nueva.
+        // Solo si no hay conexion, usa la ultima copia guardada.
+        event.respondWith(
+            fetch(event.request)
+                .then(resp => {
+                    const copia = resp.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, copia));
+                    return resp;
+                })
+                .catch(() => caches.match(event.request))
+        );
+    } else {
+        // Iconos/manifest: cache primero, cambian poco, mas rapido asi
         event.respondWith(
             caches.match(event.request).then(resp => resp || fetch(event.request))
         );
     }
-    // Todo lo demas (Firebase, tiles del mapa, Nominatim) no se intercepta:
-    // el navegador lo maneja normal, siempre pidiendo a la red.
 });

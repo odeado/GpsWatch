@@ -1880,6 +1880,35 @@
         const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving/';
         const rutaCarreteraTimers = {};
 
+        // Le pide a OSRM el camino REAL por calles que conecta los puntos dados,
+        // en el orden que se le pasen (no adivina el orden, solo el camino).
+        // Devuelve null si falla, para que quien la use pueda caer de vuelta
+        // a una linea recta sin romper nada.
+        async function obtenerRutaPorCalles(puntosLatLon) {
+            if (!puntosLatLon || puntosLatLon.length < 2) return null;
+
+            const MAX_PUNTOS = 25;
+            let muestra = puntosLatLon;
+            if (puntosLatLon.length > MAX_PUNTOS) {
+                const paso = Math.ceil(puntosLatLon.length / MAX_PUNTOS);
+                muestra = puntosLatLon.filter((_, i) => i % paso === 0);
+                muestra.push(puntosLatLon[puntosLatLon.length - 1]);
+            }
+
+            const coordsStr = muestra.map(p => `${p[1]},${p[0]}`).join(';'); // OSRM quiere lon,lat
+
+            try {
+                const resp = await fetch(`${OSRM_URL}${coordsStr}?overview=full&geometries=geojson`);
+                const data = await resp.json();
+                if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                    return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                }
+            } catch (e) {
+                console.log('No se pudo trazar por calles', e);
+            }
+            return null;
+        }
+
         function programarRutaPorCalles(id) {
             if (!rutasPorCallesActivas) return;
             if (rutaCarreteraTimers[id]) clearTimeout(rutaCarreteraTimers[id]);
@@ -2656,7 +2685,7 @@
             verRecorridoMicro();
         }
 
-        function verRecorridoMicro() {
+        async function verRecorridoMicro() {
             const micro = document.getElementById('micro-ver').value;
             const sentido = document.getElementById('micro-ver-sentido').value;
             const cont = document.getElementById('micro-ver-resultado');
@@ -2673,7 +2702,7 @@
             if (referencia && referencia.length > 0) {
                 dibujarRecorridoReal(micro, sentido, referencia);
             } else {
-                dibujarRecorridoAproximado(micro, sentido);
+                await dibujarRecorridoAproximado(micro, sentido);
             }
         }
 
@@ -2730,7 +2759,11 @@
 
         // Aproximacion anterior: solo con los paraderos propios, ordenados por
         // cercania (se usa si todavia no hay referencia real para esa micro).
-        function dibujarRecorridoAproximado(micro, sentido) {
+        // Desde ahora, el TRAZO entre esos paraderos va por calles reales
+        // (OSRM), no en linea recta - asi la ruta no "vuela" cruzando manzanas.
+        // El ORDEN sigue siendo una aproximacion (el mas cercano al siguiente),
+        // eso no lo resuelve OSRM, solo el camino entre cada par de puntos.
+        async function dibujarRecorridoAproximado(micro, sentido) {
             const cont = document.getElementById('micro-ver-resultado');
             const lista = ordenarPorCercania(paraderosDeMicroSentido(micro, sentido));
 
@@ -2747,9 +2780,20 @@
             }
 
             const puntos = lista.map(p => [p.lat, p.lon]);
-            if (puntos.length > 1) {
-                capaRecorrido = L.polyline(puntos, {
-                    color: '#ffaa00', weight: 4, opacity: 0.75, dashArray: '10, 6'
+
+            // Intentar trazar el camino real por calles entre los paraderos
+            let puntosLinea = puntos;
+            let porCalles = false;
+            if (puntos.length > 1 && rutasPorCallesActivas) {
+                cont.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:10px;font-size:0.76rem;">Trazando por calles...</div>';
+                const rutaReal = await obtenerRutaPorCalles(puntos);
+                if (rutaReal) { puntosLinea = rutaReal; porCalles = true; }
+            }
+
+            if (puntosLinea.length > 1) {
+                capaRecorrido = L.polyline(puntosLinea, {
+                    color: '#ffaa00', weight: 4, opacity: porCalles ? 0.85 : 0.75,
+                    dashArray: porCalles ? null : '10, 6' // solido = por calles, punteado = linea recta (respaldo)
                 }).addTo(mapa);
             }
 
@@ -2777,6 +2821,12 @@
                 setTimeout(() => { movimientoProgramatico = false; }, 600);
             }
 
+            const notaFinal = porCalles
+                ? 'Camino trazado por calles reales entre tus paraderos confirmados. El ORDEN de las paradas sigue siendo una aproximación (la más cercana a la anterior).'
+                : (rutasPorCallesActivas
+                    ? 'No se pudo trazar por calles esta vez (sin conexión al servicio) — se muestra línea recta de respaldo.'
+                    : 'Rutas por calles desactivadas (🛣️ en el header) — mostrando línea recta.');
+
             cont.innerHTML = `
                 <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> (${etiquetaSentido}) pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
                 ${lista.map((p, i) => `
@@ -2784,7 +2834,7 @@
                         <span class="num">${i + 1}</span>
                         <span>${p.nombre}</span>
                     </div>`).join('')}
-                <div class="micro-nota-aprox">Línea aproximada por cercanía entre tus paraderos confirmados en este sentido.</div>
+                <div class="micro-nota-aprox">${notaFinal}</div>
             `;
         }
 

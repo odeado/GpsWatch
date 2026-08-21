@@ -948,6 +948,26 @@
             font-size: 0.66rem; color: var(--text-muted);
             margin-top: 6px; line-height: 1.4;
         }
+        .btn-dibujar {
+            width: 100%; margin-top: 8px; padding: 9px;
+            border-radius: 10px; border: 1px solid rgba(0,255,136,0.3);
+            background: rgba(0,255,136,0.1); color: var(--accent-green);
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-dibujar:hover { background: rgba(0,255,136,0.2); }
+        .btn-dibujar.borrar {
+            border-color: rgba(255,68,68,0.25); background: rgba(255,68,68,0.08); color: #ff6b6b;
+        }
+        .btn-dibujar.borrar:hover { background: rgba(255,68,68,0.16); }
+        .micro-dibujo-controles {
+            display: flex; gap: 6px; margin-top: 8px;
+        }
+        .micro-dibujo-controles button {
+            flex: 1; padding: 9px 6px; border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.25); color: var(--text-primary);
+            font-size: 0.7rem; font-weight: 600; cursor: pointer;
+        }
+        .micro-dibujo-controles button:hover { background: rgba(0,0,0,0.4); }
 
         /* ===== PARADEROS ===== */
         .paraderos-panel {
@@ -1374,6 +1394,19 @@
                             <select id="micro-ver-sentido" onchange="verRecorridoMicro()" style="display:none;">
                             </select>
                             <div id="micro-ver-resultado" class="micro-resultado"></div>
+
+                            <button class="btn-dibujar" id="btn-dibujar-camino" onclick="iniciarDibujoCamino()" style="display:none;">
+                                ✏️ Dibujar el camino a mano
+                            </button>
+                            <button class="btn-dibujar borrar" id="btn-borrar-camino-manual" onclick="borrarCaminoManual()" style="display:none;">
+                                🗑️ Borrar camino dibujado
+                            </button>
+
+                            <div class="micro-dibujo-controles" id="micro-dibujo-controles" style="display:none;">
+                                <button onclick="deshacerPuntoDibujo()">↩️ Deshacer</button>
+                                <button onclick="guardarCaminoDibujado()">💾 Guardar</button>
+                                <button onclick="cancelarDibujoCamino()">✕ Cancelar</button>
+                            </div>
                         </div>
 
                         <!-- 2. Que micro sirve para ir de A a B -->
@@ -1884,6 +1917,13 @@
         // en el orden que se le pasen (no adivina el orden, solo el camino).
         // Devuelve null si falla, para que quien la use pueda caer de vuelta
         // a una linea recta sin romper nada.
+        //
+        // Tambien detecta desvios sospechosos: si el camino real termina siendo
+        // mucho mas largo que la distancia en linea recta, probablemente OSRM
+        // tuvo que dar una vuelta grande por una calle de sentido unico o giro
+        // prohibido para AUTOS - una micro puede tener pistas o giros que un
+        // auto normal no tiene, asi que esto no siempre es un error, pero vale
+        // la pena avisarlo en vez de mostrarlo como si fuera 100% confiable.
         async function obtenerRutaPorCalles(puntosLatLon) {
             if (!puntosLatLon || puntosLatLon.length < 2) return null;
 
@@ -1901,7 +1941,17 @@
                 const resp = await fetch(`${OSRM_URL}${coordsStr}?overview=full&geometries=geojson`);
                 const data = await resp.json();
                 if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                    return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    let distanciaRecta = 0;
+                    for (let i = 1; i < muestra.length; i++) {
+                        distanciaRecta += mapa.distance(muestra[i - 1], muestra[i]);
+                    }
+                    const distanciaRuta = data.routes[0].distance || 0;
+                    const sospechoso = distanciaRecta > 0 && distanciaRuta > distanciaRecta * 2.3;
+
+                    return {
+                        coords: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+                        sospechoso
+                    };
                 }
             } catch (e) {
                 console.log('No se pudo trazar por calles', e);
@@ -2550,6 +2600,17 @@
             }
         });
 
+        // Caminos dibujados a mano (lapiz): la maxima autoridad, porque los
+        // trazaste tu mismo viendo la calle real. Le ganan tanto a la
+        // referencia de Moovit como a la aproximacion por OSRM.
+        let rutasManuales = {};
+        db.ref('/rutas_manuales').on('value', (snap) => {
+            rutasManuales = snap.val() || {};
+            const microActual = document.getElementById('micro-ver')?.value;
+            const sentidoActual = document.getElementById('micro-ver-sentido')?.value;
+            if (microActual && sentidoActual && !dibujandoCamino) verRecorridoMicro();
+        });
+
         function toggleMicros() {
             const panel = document.getElementById('micros-panel');
             const icon = document.getElementById('icon-micros-toggle');
@@ -2691,18 +2752,184 @@
             const cont = document.getElementById('micro-ver-resultado');
             limpiarRecorrido();
 
-            if (!micro) { cont.innerHTML = ''; return; }
+            const btnDibujar = document.getElementById('btn-dibujar-camino');
+            const btnBorrarManual = document.getElementById('btn-borrar-camino-manual');
+
+            if (!micro) {
+                cont.innerHTML = '';
+                btnDibujar.style.display = 'none';
+                btnBorrarManual.style.display = 'none';
+                return;
+            }
             if (!sentido) {
                 cont.innerHTML = '<div class="micro-fallo">Elige un sentido para ver el recorrido</div>';
+                btnDibujar.style.display = 'none';
+                btnBorrarManual.style.display = 'none';
                 return;
             }
 
-            const referencia = referenciaRutas[micro] && referenciaRutas[micro][sentido];
+            btnDibujar.style.display = '';
 
+            // 1ra prioridad: camino dibujado a mano (el mas confiable, lo trazaste tu)
+            const manual = rutasManuales[micro] && rutasManuales[micro][sentido];
+            if (manual && manual.puntos && manual.puntos.length > 1) {
+                dibujarRecorridoManual(micro, sentido, manual.puntos);
+                btnBorrarManual.style.display = '';
+                return;
+            }
+            btnBorrarManual.style.display = 'none';
+
+            // 2da prioridad: referencia real de Moovit
+            const referencia = referenciaRutas[micro] && referenciaRutas[micro][sentido];
             if (referencia && referencia.length > 0) {
                 dibujarRecorridoReal(micro, sentido, referencia);
             } else {
+                // 3ra: aproximacion por OSRM entre los paraderos propios
                 await dibujarRecorridoAproximado(micro, sentido);
+            }
+        }
+
+        // Dibuja el camino que trazaste a mano con el lapiz - maxima confianza,
+        // se usa tal cual, sin adivinar nada.
+        function dibujarRecorridoManual(micro, sentido, puntos) {
+            const cont = document.getElementById('micro-ver-resultado');
+
+            capaRecorrido = L.polyline(puntos, { color: '#00ff88', weight: 5, opacity: 0.9 }).addTo(mapa);
+
+            const campoSentido = sentido === 'norte_sur' ? 'micros_norte_sur' : 'micros_sur_norte';
+            const propios = paraderos.filter(p => (p[campoSentido] || []).includes(micro));
+            propios.forEach(p => {
+                const m = L.marker([p.lat, p.lon], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="width:26px;height:26px;border-radius:50%;background:#00ff88;
+                                border:3px solid #fff;box-shadow:0 0 10px #00ff88;color:#0a0a14;
+                                display:flex;align-items:center;justify-content:center;font-size:13px;">🚏</div>`,
+                        iconSize: [26, 26], iconAnchor: [13, 13]
+                    })
+                }).addTo(mapa);
+                m.bindPopup(`<b>${p.nombre}</b><br>Micro ${micro} confirmada`);
+                marcadoresRecorrido.push(m);
+            });
+
+            desactivarSeguimiento();
+            movimientoProgramatico = true;
+            mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.15));
+            setTimeout(() => { movimientoProgramatico = false; }, 600);
+
+            const etiquetas = { norte_sur: 'Norte → Sur', sur_norte: 'Sur → Norte', sin_confirmar: 'sin confirmar' };
+            const etiquetaSentido = etiquetas[sentido] || sentido;
+
+            cont.innerHTML = `
+                <div class="micro-exito" style="margin-bottom:0;">
+                    ✏️ Camino dibujado a mano (${etiquetaSentido}) — ${puntos.length} puntos marcados.
+                    ${propios.length ? `<br>${propios.length} paraderos tuyos confirmados en este trazo.` : ''}
+                </div>
+            `;
+        }
+
+        // ===== MODO DIBUJO (lapiz): tocar el mapa para ir marcando el camino =====
+        let dibujandoCamino = false;
+        let puntosDibujo = [];
+        let capaDibujoTmp = null;
+        let marcadoresDibujoTmp = [];
+        let clickMapaDibujoHandler = null;
+
+        function limpiarDibujoTemporal() {
+            if (capaDibujoTmp) { mapa.removeLayer(capaDibujoTmp); capaDibujoTmp = null; }
+            marcadoresDibujoTmp.forEach(m => mapa.removeLayer(m));
+            marcadoresDibujoTmp = [];
+        }
+
+        function redibujarTrazoDibujo() {
+            limpiarDibujoTemporal();
+            if (puntosDibujo.length > 1) {
+                capaDibujoTmp = L.polyline(puntosDibujo, { color: '#00ff88', weight: 4, opacity: 0.9 }).addTo(mapa);
+            }
+            puntosDibujo.forEach(p => {
+                const m = L.circleMarker(p, {
+                    radius: 5, color: '#00ff88', fillColor: '#00ff88', fillOpacity: 1, weight: 2
+                }).addTo(mapa);
+                marcadoresDibujoTmp.push(m);
+            });
+        }
+
+        function iniciarDibujoCamino() {
+            const micro = document.getElementById('micro-ver').value;
+            const sentido = document.getElementById('micro-ver-sentido').value;
+            if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
+
+            dibujandoCamino = true;
+            puntosDibujo = [];
+            limpiarRecorrido();
+            limpiarDibujoTemporal();
+
+            document.getElementById('btn-dibujar-camino').style.display = 'none';
+            document.getElementById('btn-borrar-camino-manual').style.display = 'none';
+            document.getElementById('micro-dibujo-controles').style.display = 'flex';
+            document.getElementById('micro-ver-resultado').innerHTML =
+                '<div class="micro-exito">✏️ Modo dibujo activo: toca el mapa para ir marcando el camino en orden. Cuando termines, toca "Guardar".</div>';
+
+            desactivarSeguimiento();
+            clickMapaDibujoHandler = (e) => {
+                puntosDibujo.push([e.latlng.lat, e.latlng.lng]);
+                redibujarTrazoDibujo();
+            };
+            mapa.on('click', clickMapaDibujoHandler);
+        }
+
+        function deshacerPuntoDibujo() {
+            puntosDibujo.pop();
+            redibujarTrazoDibujo();
+        }
+
+        async function guardarCaminoDibujado() {
+            const micro = document.getElementById('micro-ver').value;
+            const sentido = document.getElementById('micro-ver-sentido').value;
+
+            if (puntosDibujo.length < 2) {
+                mostrarToast('Marca al menos 2 puntos antes de guardar', 'error');
+                return;
+            }
+
+            try {
+                await db.ref(`/rutas_manuales/${micro}/${sentido}`).set({
+                    puntos: puntosDibujo,
+                    creado: Date.now()
+                });
+                mostrarToast('Camino guardado ✅', 'success');
+            } catch (e) {
+                console.log('No se pudo guardar el camino dibujado', e);
+                mostrarToast('No se pudo guardar', 'error');
+            }
+            terminarDibujoCamino();
+        }
+
+        function cancelarDibujoCamino() {
+            terminarDibujoCamino();
+            verRecorridoMicro();
+        }
+
+        function terminarDibujoCamino() {
+            dibujandoCamino = false;
+            if (clickMapaDibujoHandler) { mapa.off('click', clickMapaDibujoHandler); clickMapaDibujoHandler = null; }
+            limpiarDibujoTemporal();
+            puntosDibujo = [];
+            document.getElementById('micro-dibujo-controles').style.display = 'none';
+            document.getElementById('btn-dibujar-camino').style.display = '';
+        }
+
+        async function borrarCaminoManual() {
+            const micro = document.getElementById('micro-ver').value;
+            const sentido = document.getElementById('micro-ver-sentido').value;
+            if (!micro || !sentido) return;
+            if (!confirm('¿Borrar el camino dibujado a mano? Volverá a usar la aproximación automática.')) return;
+
+            try {
+                await db.ref(`/rutas_manuales/${micro}/${sentido}`).remove();
+                mostrarToast('Camino dibujado eliminado', 'warning');
+            } catch (e) {
+                mostrarToast('No se pudo borrar', 'error');
             }
         }
 
@@ -2784,15 +3011,21 @@
             // Intentar trazar el camino real por calles entre los paraderos
             let puntosLinea = puntos;
             let porCalles = false;
+            let desvioSospechoso = false;
             if (puntos.length > 1 && rutasPorCallesActivas) {
                 cont.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:10px;font-size:0.76rem;">Trazando por calles...</div>';
                 const rutaReal = await obtenerRutaPorCalles(puntos);
-                if (rutaReal) { puntosLinea = rutaReal; porCalles = true; }
+                if (rutaReal) {
+                    puntosLinea = rutaReal.coords;
+                    porCalles = true;
+                    desvioSospechoso = rutaReal.sospechoso;
+                }
             }
 
             if (puntosLinea.length > 1) {
                 capaRecorrido = L.polyline(puntosLinea, {
-                    color: '#ffaa00', weight: 4, opacity: porCalles ? 0.85 : 0.75,
+                    color: desvioSospechoso ? '#ff8844' : '#ffaa00',
+                    weight: 4, opacity: porCalles ? 0.85 : 0.75,
                     dashArray: porCalles ? null : '10, 6' // solido = por calles, punteado = linea recta (respaldo)
                 }).addTo(mapa);
             }
@@ -2821,11 +3054,18 @@
                 setTimeout(() => { movimientoProgramatico = false; }, 600);
             }
 
-            const notaFinal = porCalles
-                ? 'Camino trazado por calles reales entre tus paraderos confirmados. El ORDEN de las paradas sigue siendo una aproximación (la más cercana a la anterior).'
-                : (rutasPorCallesActivas
-                    ? 'No se pudo trazar por calles esta vez (sin conexión al servicio) — se muestra línea recta de respaldo.'
-                    : 'Rutas por calles desactivadas (🛣️ en el header) — mostrando línea recta.');
+            let notaFinal;
+            if (desvioSospechoso) {
+                notaFinal = '⚠️ Este tramo dio una vuelta mucho más larga de lo esperado — probablemente porque esa calle tiene sentido único o giro prohibido ' +
+                    'para un auto normal (una micro puede tener pistas/giros que un auto no tiene). ' +
+                    'Si sabes que en realidad es más directo, considera agregar un paradero justo en la curva para partir el tramo en dos y afinar el trazado.';
+            } else if (porCalles) {
+                notaFinal = 'Camino trazado por calles reales entre tus paraderos confirmados. El ORDEN de las paradas sigue siendo una aproximación (la más cercana a la anterior).';
+            } else if (rutasPorCallesActivas) {
+                notaFinal = 'No se pudo trazar por calles esta vez (sin conexión al servicio) — se muestra línea recta de respaldo.';
+            } else {
+                notaFinal = 'Rutas por calles desactivadas (🛣️ en el header) — mostrando línea recta.';
+            }
 
             cont.innerHTML = `
                 <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> (${etiquetaSentido}) pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
@@ -2834,7 +3074,7 @@
                         <span class="num">${i + 1}</span>
                         <span>${p.nombre}</span>
                     </div>`).join('')}
-                <div class="micro-nota-aprox">${notaFinal}</div>
+                <div class="micro-nota-aprox" style="${desvioSospechoso ? 'color:#ff8844;' : ''}">${notaFinal}</div>
             `;
         }
 

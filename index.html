@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,11 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Ubicacion en tiempo real</title>
 
+    <!-- PWA: permite "Agregar a pantalla de inicio" y que se sienta como app -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a14">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <!-- Safari/iOS no lee bien el manifest.json, necesita estos aparte -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GPS Tracker">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1007,6 +1014,20 @@
             display: block; font-size: 0.68rem; color: var(--text-secondary);
             margin: 6px 0 3px; font-weight: 600;
         }
+        .btn-reubicar {
+            width: 100%; margin: 4px 0 10px; padding: 9px;
+            border-radius: 10px; border: 1px solid rgba(0,212,255,0.3);
+            background: rgba(0,212,255,0.1); color: var(--accent-cyan);
+            font-size: 0.76rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-reubicar:hover { background: rgba(0,212,255,0.18); }
+        .btn-exportar {
+            width: 100%; margin-top: 10px; padding: 9px;
+            border-radius: 10px; border: 1px solid rgba(0,255,136,0.25);
+            background: rgba(0,255,136,0.08); color: var(--accent-green);
+            font-size: 0.76rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-exportar:hover { background: rgba(0,255,136,0.16); }
         .paradero-grupo-sentido { margin-top: 4px; }
         .paradero-grupo-titulo {
             font-size: 0.63rem; color: var(--text-muted);
@@ -1081,6 +1102,25 @@
             color: var(--accent-cyan);
         }
         .pildora-seguimiento .pildora-x { margin-left: 6px; opacity: 0.7; }
+
+        /* ===== BRUJULA (volver al norte) ===== */
+        .btn-brujula {
+            position: absolute; top: 12px; right: 12px;
+            z-index: 800;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(10,10,20,0.88);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .btn-brujula.visible { opacity: 1; pointer-events: auto; }
+        .btn-brujula-flecha {
+            color: #ff4444; font-size: 1.1rem; line-height: 1;
+            transition: transform 0.15s linear;
+        }
 
         /* ===== ALERTA GRANDE CENTRADA (llamativa) ===== */
         .alerta-centro {
@@ -1212,6 +1252,9 @@
                 <button class="header-btn" onclick="toggleRutasPorCalles()" id="btn-rutas-calles" title="Rutas por calles (si se apaga, muestra linea recta)" style="color: var(--accent-green);">
                     🛣️
                 </button>
+                <button class="header-btn" onclick="activarNotificacionesPush()" id="btn-push-real" title="Notificaciones push reales (funcionan con el navegador cerrado)">
+                    📡
+                </button>
             </div>
         </div>
 
@@ -1273,6 +1316,9 @@
                     <button onclick="buscarDireccion()" id="btn-buscar-direccion">Buscar</button>
                 </div>
                 <div class="pildora-seguimiento" id="pildora-seguimiento" onclick="alternarSeguimiento()"></div>
+                <div class="btn-brujula" id="btn-brujula" onclick="mapa.setBearing(0)" title="Volver al norte">
+                    <div class="btn-brujula-flecha" id="btn-brujula-flecha">▲</div>
+                </div>
                 <div id="mapa"></div>
             </div>
 
@@ -1386,6 +1432,9 @@
                             <input type="text" id="paradero-micros-sc" placeholder="Micros que pasan pero no sabes el sentido">
 
                             <input type="text" id="paradero-nota" placeholder="Nota (opcional: hacia el centro, etc)">
+                            <button class="btn-reubicar" id="btn-reubicar-paradero" onclick="reubicarParaderoAqui()" style="display:none;">
+                                📍 Estoy aquí ahora - corregir posición
+                            </button>
                             <div class="paradero-form-btns">
                                 <button class="popup-btn cancelar" onclick="cancelarParadero()">Cancelar</button>
                                 <button class="popup-btn crear" id="btn-guardar-paradero" onclick="guardarParadero()">Guardar</button>
@@ -1466,6 +1515,7 @@
                                 <option value="panico">🆘 Pánico</option>
                             </select>
                         </div>
+                        <button class="btn-exportar" onclick="exportarEventosCSV()">⬇️ Exportar CSV</button>
                         <div id="eventos-lista"></div>
                     </div>
                 </div>
@@ -1497,6 +1547,7 @@
                         </div>
                         <input type="range" id="reproductor-slider" min="0" max="0" value="0" oninput="moverSlider(this.value)">
                         <div class="reproductor-info" id="reproductor-info">Abre este panel para ver el historial de rutas</div>
+                        <button class="btn-exportar" onclick="exportarRutaCSV()">⬇️ Exportar CSV</button>
                     </div>
                 </div>
 
@@ -1505,26 +1556,98 @@
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
 
     <script>
 
         // ===== CONFIGURACION =====
         const firebaseConfig = {
+            // 👉 Estos 4 datos son NUEVOS, necesarios solo para las notificaciones
+            // push reales. Sacalos de: Firebase Console > ⚙️ Configuracion del
+            // proyecto > General > tu app web > "Config" (el objeto firebaseConfig).
             apiKey: "AIzaSyAMGi4dczBL1VYdSx9UUsCsmlp1i3Hcw_w",
             authDomain: "sensorgps-a3027.firebaseapp.com",
-            databaseURL: "https://sensorgps-a3027-default-rtdb.firebaseio.com",
-            projectId: "sensorgps-a3027"
+            projectId: "sensorgps-a3027",
+            messagingSenderId: "883990627894",
+            appId: "1:883990627894:web:ab03dc5065b7a241acba97",
+            // Esta ya la tenias, no la toques:
+            databaseURL: "https://sensorgps-a3027-default-rtdb.firebaseio.com"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Login anonimo silencioso: no pide nada al usuario, solo identifica
-        // esta pagina ante Firebase. Guardamos la promesa para esperar a que
-        // termine antes de conectar los listeners que leen/escriben datos.
-        const listoAuth = firebase.auth().signInAnonymously().catch(e => {
-            console.log('No se pudo autenticar', e);
-            mostrarToast('Error de conexión con el servidor', 'error');
-        });
+        // ===== NOTIFICACIONES PUSH REALES (funcionan con el navegador cerrado) =====
+        // 👉 Sacar la VAPID key de: Firebase Console > Configuracion del proyecto >
+        // Cloud Messaging > pestaña "Web configuration" > "Generar par de claves".
+        const VAPID_KEY = "BNHwN1k5v8YATRK_gzi-0PjU37Sn4J8exHZgFNSBRi8unuQ_c94x7NtFQEsfsAtRb3YWyfLuj4D4U_xiopEn34U";
+
+        let messaging = null;
+        try {
+            if (firebase.messaging && firebase.messaging.isSupported()) {
+                messaging = firebase.messaging();
+            }
+        } catch (e) {
+            console.log('FCM no disponible en este navegador', e);
+        }
+
+        async function activarNotificacionesPush() {
+            if (!messaging) {
+                mostrarToast('Este navegador no soporta notificaciones push', 'error');
+                return;
+            }
+            if (VAPID_KEY.startsWith('PEGA_AQUI') || firebaseConfig.apiKey.startsWith('PEGA_AQUI')) {
+                mostrarToast('Falta configurar la VAPID key / apiKey en el código (ver comentarios)', 'error');
+                return;
+            }
+
+            try {
+                const permiso = await Notification.requestPermission();
+                if (permiso !== 'granted') {
+                    mostrarToast('Permiso de notificaciones denegado', 'warning');
+                    return;
+                }
+
+                const registro = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+                const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registro });
+
+                if (token) {
+                    const clave = token.replace(/[.#$/\[\]]/g, '_').slice(0, 120);
+                    await db.ref(`/fcm_tokens/${clave}`).set({
+                        token,
+                        guardado: Date.now(),
+                        navegador: navigator.userAgent.slice(0, 120)
+                    });
+                    localStorage.setItem('fcm_token_activo', '1');
+                    document.getElementById('btn-push-real').style.color = 'var(--accent-green)';
+                    mostrarToast('Notificaciones push activadas ✅ (avisan aunque cierres el navegador)', 'success');
+                } else {
+                    mostrarToast('No se pudo obtener el token de notificaciones', 'error');
+                }
+            } catch (e) {
+                console.log('Error activando notificaciones push', e);
+                mostrarToast('No se pudo activar (revisa la consola del navegador)', 'error');
+            }
+        }
+
+        // Si la pestaña esta abierta y llega un push, mostrarlo como toast
+        // (el service worker se encarga del caso "navegador cerrado")
+        if (messaging) {
+            messaging.onMessage((payload) => {
+                const titulo = payload.notification?.title || 'Notificación';
+                const cuerpo = payload.notification?.body || '';
+                mostrarToast(`${titulo}: ${cuerpo}`, 'success');
+            });
+        }
+
+        // Reflejar si ya estaba activado antes
+        if (localStorage.getItem('fcm_token_activo') === '1') {
+            document.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('btn-push-real');
+                if (btn) btn.style.color = 'var(--accent-green)';
+            });
+        }
 
         // ===== AVATARES POR DISPOSITIVO =====
         const AVATARES = {
@@ -1584,7 +1707,10 @@
         // ===== MAPA =====
         const mapa = L.map('mapa', {
             zoomControl: true,
-            attributionControl: false
+            attributionControl: false,
+            rotate: true,        // habilita la rotacion del mapa
+            touchRotate: true,   // gesto de 2 dedos girando, como Google Maps
+            rotateControl: false // no mostrar la flecha propia del plugin, usamos boton propio
         }).setView([-23.6, -70.4], 13);
 
         // Mapa base CLARO (CartoDB Voyager - mucho mas visible)
@@ -1606,6 +1732,21 @@
             attribution: '&copy; Esri',
             maxZoom: 19
         });
+
+        // ===== BRUJULA: se muestra solo si el mapa esta girado, y la flecha
+        // siempre apunta al norte real (al tocarla, vuelve a poner el mapa derecho) =====
+        if (typeof mapa.on === 'function') {
+            mapa.on('rotate', () => {
+                const bearing = mapa.getBearing ? mapa.getBearing() : 0;
+                const btn = document.getElementById('btn-brujula');
+                const flecha = document.getElementById('btn-brujula-flecha');
+                if (!btn || !flecha) return;
+
+                const girado = Math.abs(bearing) > 0.5;
+                btn.classList.toggle('visible', girado);
+                flecha.style.transform = `rotate(${-bearing}deg)`;
+            });
+        }
 
         let vistaSatelite = false;
         let vistaOscura = false;
@@ -1964,28 +2105,7 @@
                     })
                 }).addTo(mapa);
 
-                marker.bindPopup(
-                    `<div style="font-family:Segoe UI,sans-serif;min-width:170px;">
-                        <div style="font-weight:700;margin-bottom:4px;">
-                            ${zona.tipo === 'casa' ? '🏠' : '💼'} ${zona.nombre}
-                        </div>
-                        <div style="font-size:0.8rem;color:#666;">Radio: ${zona.radio}m</div>
-                        <div style="display:flex;gap:6px;margin-top:9px;">
-                            <button onclick="mapa.closePopup(); editarZona(${index});"
-                                    style="flex:1;padding:8px;border:none;border-radius:9px;
-                                        background:#00d4ff;color:#0a0a14;font-weight:700;font-size:0.76rem;
-                                        cursor:pointer;">
-                                ✏️ Editar
-                            </button>
-                            <button onclick="if(confirm('¿Borrar la zona &quot;${zona.nombre}&quot;?')){ mapa.closePopup(); eliminarZona(${index}); }"
-                                    style="flex:1;padding:8px;border:none;border-radius:9px;
-                                        background:rgba(255,68,68,0.15);color:#ff4444;font-weight:700;font-size:0.76rem;
-                                        cursor:pointer;border:1px solid rgba(255,68,68,0.3);">
-                                🗑️ Borrar
-                            </button>
-                        </div>
-                    </div>`
-                );
+                marker.bindPopup(`<b>${zona.nombre}</b><br>Radio: ${zona.radio}m`);
 
                 zonasCirculos.push(circulo);
                 zonasCirculos.push(marker);
@@ -2377,12 +2497,12 @@
         // reales de Moovit con coordenadas). Si existe para una micro+sentido,
         // se usa en vez de la aproximacion por cercania de los paraderos propios.
         let referenciaRutas = {};
-        listoAuth.then(() => db.ref('/referencia_rutas').on('value', (snap) => {
+        db.ref('/referencia_rutas').on('value', (snap) => {
             referenciaRutas = snap.val() || {};
             if (document.getElementById('micros-panel')?.classList.contains('abierto')) {
                 poblarSelectoresMicros();
             }
-        }));
+        });
 
         function toggleMicros() {
             const panel = document.getElementById('micros-panel');
@@ -2406,8 +2526,19 @@
             });
         }
 
+        // Cuenta total (cualquier sentido) - solo para mostrar "(N paraderos)" en el selector
         function paraderosDeMicro(micro) {
             return paraderos.filter(p => (p.micros || []).includes(micro));
+        }
+
+        // Filtra por micro Y sentido especifico - esta es la que hay que usar
+        // para dibujar el recorrido, porque mezclar sentidos en una sola linea
+        // no tiene sentido fisico (estan en veredas/calles opuestas).
+        function paraderosDeMicroSentido(micro, sentido) {
+            const campo = sentido === 'norte_sur' ? 'micros_norte_sur'
+                        : sentido === 'sur_norte' ? 'micros_sur_norte'
+                        : 'micros_sin_confirmar';
+            return paraderos.filter(p => (p[campo] || []).includes(micro));
         }
 
         function poblarSelectoresMicros() {
@@ -2470,15 +2601,35 @@
             return orden;
         }
 
-        // Al elegir una micro, si hay referencia real con mas de un sentido
-        // cargado, mostrar el selector de sentido. Si no, ir directo.
+        // Al elegir una micro, arma el selector de sentido con lo que haya
+        // disponible: referencia real de Moovit (si existe) + lo que tus
+        // propios paraderos ya tengan confirmado por sentido.
         function cambiarMicroVer() {
             const micro = document.getElementById('micro-ver').value;
             const selSentido = document.getElementById('micro-ver-sentido');
-            const sentidos = micro ? Object.keys(referenciaRutas[micro] || {}) : [];
+
+            const sentidosRef = micro ? Object.keys(referenciaRutas[micro] || {}) : [];
+
+            const sentidosPropios = new Set();
+            if (micro) {
+                paraderos.forEach(p => {
+                    if ((p.micros_norte_sur || []).includes(micro)) sentidosPropios.add('norte_sur');
+                    if ((p.micros_sur_norte || []).includes(micro)) sentidosPropios.add('sur_norte');
+                    if ((p.micros_sin_confirmar || []).includes(micro)) sentidosPropios.add('sin_confirmar');
+                });
+            }
+
+            const sentidos = [...new Set([...sentidosRef, ...sentidosPropios])];
+            // Orden fijo, para que no salten de lugar cada vez
+            const ordenPreferido = ['norte_sur', 'sur_norte', 'sin_confirmar'];
+            sentidos.sort((a, b) => ordenPreferido.indexOf(a) - ordenPreferido.indexOf(b));
 
             if (sentidos.length > 0) {
-                const etiquetas = { norte_sur: '➡️ Norte → Sur', sur_norte: '⬅️ Sur → Norte' };
+                const etiquetas = {
+                    norte_sur: '➡️ Norte → Sur',
+                    sur_norte: '⬅️ Sur → Norte',
+                    sin_confirmar: '❓ Sin confirmar'
+                };
                 selSentido.innerHTML = sentidos.map(s => `<option value="${s}">${etiquetas[s] || s}</option>`).join('');
                 selSentido.style.display = '';
             } else {
@@ -2495,13 +2646,17 @@
             limpiarRecorrido();
 
             if (!micro) { cont.innerHTML = ''; return; }
+            if (!sentido) {
+                cont.innerHTML = '<div class="micro-fallo">Elige un sentido para ver el recorrido</div>';
+                return;
+            }
 
             const referencia = referenciaRutas[micro] && referenciaRutas[micro][sentido];
 
             if (referencia && referencia.length > 0) {
                 dibujarRecorridoReal(micro, sentido, referencia);
             } else {
-                dibujarRecorridoAproximado(micro);
+                dibujarRecorridoAproximado(micro, sentido);
             }
         }
 
@@ -2558,10 +2713,21 @@
 
         // Aproximacion anterior: solo con los paraderos propios, ordenados por
         // cercania (se usa si todavia no hay referencia real para esa micro).
-        function dibujarRecorridoAproximado(micro) {
+        function dibujarRecorridoAproximado(micro, sentido) {
             const cont = document.getElementById('micro-ver-resultado');
-            const lista = ordenarPorCercania(paraderosDeMicro(micro));
-            if (lista.length === 0) { cont.innerHTML = '<div class="micro-fallo">Sin paraderos para esa micro</div>'; return; }
+            const lista = ordenarPorCercania(paraderosDeMicroSentido(micro, sentido));
+
+            const etiquetas = {
+                norte_sur: 'Norte → Sur',
+                sur_norte: 'Sur → Norte',
+                sin_confirmar: 'sin confirmar'
+            };
+            const etiquetaSentido = etiquetas[sentido] || sentido;
+
+            if (lista.length === 0) {
+                cont.innerHTML = `<div class="micro-fallo">Sin paraderos confirmados en sentido ${etiquetaSentido} para esta micro</div>`;
+                return;
+            }
 
             const puntos = lista.map(p => [p.lat, p.lon]);
             if (puntos.length > 1) {
@@ -2581,7 +2747,7 @@
                         iconSize: [26, 26], iconAnchor: [13, 13]
                     })
                 }).addTo(mapa);
-                m.bindPopup(`<b>${i + 1}. ${p.nombre}</b><br>Micro ${micro}`);
+                m.bindPopup(`<b>${i + 1}. ${p.nombre}</b><br>Micro ${micro} (${etiquetaSentido})`);
                 marcadoresRecorrido.push(m);
             });
 
@@ -2595,13 +2761,13 @@
             }
 
             cont.innerHTML = `
-                <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
+                <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> (${etiquetaSentido}) pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
                 ${lista.map((p, i) => `
                     <div class="micro-paradero-linea" onclick="irAParadero('${p.id}')">
                         <span class="num">${i + 1}</span>
                         <span>${p.nombre}</span>
                     </div>`).join('')}
-                <div class="micro-nota-aprox">Sin referencia real todavía para esta micro: la línea es aproximada, une solo tus paraderos cargados.</div>
+                <div class="micro-nota-aprox">Línea aproximada por cercanía entre tus paraderos confirmados en este sentido.</div>
             `;
         }
 
@@ -2743,6 +2909,7 @@
             form.classList.add('visible');
             document.getElementById('paradero-form-titulo').textContent = '🚏 Nuevo paradero';
             document.getElementById('btn-guardar-paradero').textContent = 'Guardar';
+            document.getElementById('btn-reubicar-paradero').style.display = 'none';
 
             const prec = precision ? ` · ±${Math.round(precision)}m` : '';
             document.getElementById('paradero-form-coords').textContent =
@@ -2779,6 +2946,7 @@
             form.classList.add('visible');
             document.getElementById('paradero-form-titulo').textContent = '✏️ Editando paradero';
             document.getElementById('btn-guardar-paradero').textContent = 'Guardar cambios';
+            document.getElementById('btn-reubicar-paradero').style.display = '';
 
             document.getElementById('paradero-form-coords').textContent =
                 `${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`;
@@ -2982,20 +3150,6 @@
                         <div style="font-weight:700;margin-bottom:4px;">🚏 ${p.nombre}</div>
                         <div style="font-size:0.82rem;color:#333;line-height:1.5;">${lineasMicros}</div>
                         ${p.nota ? `<div style="font-size:0.78rem;color:#666;margin-top:4px;">${p.nota}</div>` : ''}
-                        <div style="display:flex;gap:6px;margin-top:9px;">
-                            <button onclick="mapa.closePopup(); editarParadero('${p.id}');"
-                                    style="flex:1;padding:8px;border:none;border-radius:9px;
-                                        background:#ffaa00;color:#0a0a14;font-weight:700;font-size:0.76rem;
-                                        cursor:pointer;">
-                                ✏️ Editar
-                            </button>
-                            <button onclick="borrarParadero('${p.id}');"
-                                    style="flex:1;padding:8px;border:none;border-radius:9px;
-                                        background:rgba(255,68,68,0.15);color:#ff4444;font-weight:700;font-size:0.76rem;
-                                        cursor:pointer;border:1px solid rgba(255,68,68,0.3);">
-                                🗑️ Borrar
-                            </button>
-                        </div>
                     </div>`
                 );
 
@@ -3004,14 +3158,14 @@
         }
 
         // Escuchar los paraderos en vivo (si los agregas desde el celular, aparecen aca)
-        listoAuth.then(() => db.ref('/paraderos').on('value', (snap) => {
+        db.ref('/paraderos').on('value', (snap) => {
             const data = snap.val();
             paraderos = data ? Object.values(data) : [];
             renderizarParaderos();
             dibujarParaderosEnMapa();
             // Refrescar tambien los selectores de la seccion de micros
             if (document.getElementById('micros-panel')) poblarSelectoresMicros();
-        }));
+        });
 
         // ===== PANEL DE EVENTOS =====
         let eventosCache = [];
@@ -3065,6 +3219,46 @@
             return `${d}/${m}`;
         }
 
+        // Convierte filas a CSV y dispara la descarga (funciona en cualquier
+        // navegador, sin depender de ninguna libreria externa)
+        function descargarCSV(nombreArchivo, encabezados, filas) {
+            const escapar = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const lineas = [encabezados.map(escapar).join(',')];
+            filas.forEach(f => lineas.push(f.map(escapar).join(',')));
+            const csv = '\uFEFF' + lineas.join('\r\n'); // BOM para que Excel abra bien los acentos
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nombreArchivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportarEventosCSV() {
+            const filtroPersona = document.getElementById('eventos-filtro-persona').value;
+            const filtroTipo = document.getElementById('eventos-filtro-tipo').value;
+            const filtrados = eventosCache.filter(e =>
+                (!filtroPersona || e.dispositivo === filtroPersona) &&
+                (!filtroTipo || e.tipo === filtroTipo)
+            );
+
+            if (filtrados.length === 0) {
+                mostrarToast('No hay eventos para exportar con estos filtros', 'warning');
+                return;
+            }
+
+            const filas = filtrados.map(e => [
+                new Date(e.t).toLocaleString('es-CL'),
+                e.tipo, e.dispositivo, e.texto
+            ]);
+            descargarCSV(`eventos_${fechaLocalYMD(new Date())}.csv`, ['Fecha y hora', 'Tipo', 'Dispositivo', 'Detalle'], filas);
+            mostrarToast(`${filtrados.length} eventos exportados`, 'success');
+        }
+
         function renderizarEventos() {
             const lista = document.getElementById('eventos-lista');
             const filtroPersona = document.getElementById('eventos-filtro-persona').value;
@@ -3104,7 +3298,7 @@
         }
 
         // Escuchar los eventos en vivo (los genera cualquier panel abierto)
-        listoAuth.then(() => db.ref('/eventos').limitToLast(EVENTOS_MAX).on('value', (snap) => {
+        db.ref('/eventos').limitToLast(EVENTOS_MAX).on('value', (snap) => {
             const data = snap.val();
             eventosCache = data
                 ? Object.values(data).sort((a, b) => b.t - a.t)
@@ -3116,7 +3310,7 @@
             if (document.getElementById('eventos-panel').classList.contains('abierto')) {
                 renderizarEventos();
             }
-        }));
+        });
 
         // Limpiar eventos viejos de vez en cuando
         setTimeout(limpiarEventosViejos, 15000);
@@ -3500,6 +3694,25 @@
             const distanciaTotal = calcularDistanciaRuta(hasta);
             document.getElementById('reproductor-info').textContent =
                 `${hora} · Punto ${reproductorIndex + 1}/${reproductorPuntos.length} · ${(distanciaTotal / 1000).toFixed(2)} km recorridos · ${(actual.v || 0).toFixed(1)} km/h`;
+        }
+
+        function exportarRutaCSV() {
+            if (!reproductorPuntos || reproductorPuntos.length === 0) {
+                mostrarToast('No hay ruta cargada para exportar', 'warning');
+                return;
+            }
+
+            const id = document.getElementById('reproductor-dispositivo').value;
+            const nombre = id ? obtenerConfigDispositivo(id).nombre : 'dispositivo';
+
+            const filas = reproductorPuntos.map(p => [
+                new Date(p.t).toLocaleString('es-CL'),
+                p.lat.toFixed(6), p.lon.toFixed(6),
+                (p.v || 0).toFixed(1)
+            ]);
+            descargarCSV(`ruta_${nombre}_${fechaLocalYMD(new Date())}.csv`,
+                ['Fecha y hora', 'Latitud', 'Longitud', 'Velocidad km/h'], filas);
+            mostrarToast(`${filas.length} puntos exportados`, 'success');
         }
 
         function moverSlider(valor) {
@@ -4055,15 +4268,15 @@
         }
 
         // ===== INICIALIZAR =====
-        listoAuth.then(async () => {
+        (async () => {
             await cargarZonasDesdeFirebase();
             renderizarZonas();
             dibujarZonasEnMapa();
-            initFirebase();
-        });
+        })();
+        initFirebase();
 
         // Si otro panel/celular cambia las zonas, actualizar aqui tambien (en vivo)
-        listoAuth.then(() => db.ref('/zonas').on('value', (snap) => {
+        db.ref('/zonas').on('value', (snap) => {
             const data = snap.val();
             if (!data) return;
             const nuevasZonas = Object.values(data);
@@ -4075,10 +4288,10 @@
             localStorage.setItem('zonas', JSON.stringify(zonas));
             renderizarZonas();
             dibujarZonasEnMapa();
-        }));
+        });
 
         // Perfiles (emoji/color/nombre elegidos desde la app del celular)
-        listoAuth.then(() => db.ref('/perfiles').on('value', (snap) => {
+        db.ref('/perfiles').on('value', (snap) => {
             const data = snap.val();
             if (!data) return;
             Object.entries(data).forEach(([id, perfil]) => { perfilesRemotos[id] = perfil; });
@@ -4086,7 +4299,7 @@
             Object.keys(perfilesRemotos).forEach(id => obtenerConfigDispositivo(id));
             renderizarDispositivos();
             refrescarAvataresEnMapa();
-        }));
+        });
 
         // Actualizar tiempo cada segundo
         setInterval(actualizarTiempo, 1000);
@@ -4450,6 +4663,15 @@ document.getElementById('btn-sonido').style.color = sonidoActivado ? 'var(--acce
 
 // Estado inicial de la pildora de seguimiento
 actualizarPildoraSeguimiento();
+
+        // ===== PWA: registrar el service worker =====
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(() => console.log('✅ Service worker registrado (PWA lista para instalar)'))
+                    .catch(e => console.log('No se pudo registrar el service worker', e));
+            });
+        }
 
         console.log('✅ GPS Tracker cargado correctamente');
     </script>

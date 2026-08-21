@@ -8,6 +8,9 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1509,10 +1512,21 @@
 
         // ===== CONFIGURACION =====
         const firebaseConfig = {
-            databaseURL: "https://sensorgps-a3027-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyAMGi4dczBL1VYdSx9UUsCsmlp1i3Hcw_w",
+            authDomain: "sensorgps-a3027.firebaseapp.com",
+            databaseURL: "https://sensorgps-a3027-default-rtdb.firebaseio.com",
+            projectId: "sensorgps-a3027"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+
+        // Login anonimo silencioso: no pide nada al usuario, solo identifica
+        // esta pagina ante Firebase. Guardamos la promesa para esperar a que
+        // termine antes de conectar los listeners que leen/escriben datos.
+        const listoAuth = firebase.auth().signInAnonymously().catch(e => {
+            console.log('No se pudo autenticar', e);
+            mostrarToast('Error de conexión con el servidor', 'error');
+        });
 
         // ===== AVATARES POR DISPOSITIVO =====
         const AVATARES = {
@@ -2365,12 +2379,12 @@
         // reales de Moovit con coordenadas). Si existe para una micro+sentido,
         // se usa en vez de la aproximacion por cercania de los paraderos propios.
         let referenciaRutas = {};
-        db.ref('/referencia_rutas').on('value', (snap) => {
+        listoAuth.then(() => db.ref('/referencia_rutas').on('value', (snap) => {
             referenciaRutas = snap.val() || {};
             if (document.getElementById('micros-panel')?.classList.contains('abierto')) {
                 poblarSelectoresMicros();
             }
-        });
+        }));
 
         function toggleMicros() {
             const panel = document.getElementById('micros-panel');
@@ -2992,14 +3006,14 @@
         }
 
         // Escuchar los paraderos en vivo (si los agregas desde el celular, aparecen aca)
-        db.ref('/paraderos').on('value', (snap) => {
+        listoAuth.then(() => db.ref('/paraderos').on('value', (snap) => {
             const data = snap.val();
             paraderos = data ? Object.values(data) : [];
             renderizarParaderos();
             dibujarParaderosEnMapa();
             // Refrescar tambien los selectores de la seccion de micros
             if (document.getElementById('micros-panel')) poblarSelectoresMicros();
-        });
+        }));
 
         // ===== PANEL DE EVENTOS =====
         let eventosCache = [];
@@ -3092,7 +3106,7 @@
         }
 
         // Escuchar los eventos en vivo (los genera cualquier panel abierto)
-        db.ref('/eventos').limitToLast(EVENTOS_MAX).on('value', (snap) => {
+        listoAuth.then(() => db.ref('/eventos').limitToLast(EVENTOS_MAX).on('value', (snap) => {
             const data = snap.val();
             eventosCache = data
                 ? Object.values(data).sort((a, b) => b.t - a.t)
@@ -3104,7 +3118,7 @@
             if (document.getElementById('eventos-panel').classList.contains('abierto')) {
                 renderizarEventos();
             }
-        });
+        }));
 
         // Limpiar eventos viejos de vez en cuando
         setTimeout(limpiarEventosViejos, 15000);
@@ -4043,15 +4057,15 @@
         }
 
         // ===== INICIALIZAR =====
-        (async () => {
+        listoAuth.then(async () => {
             await cargarZonasDesdeFirebase();
             renderizarZonas();
             dibujarZonasEnMapa();
-        })();
-        initFirebase();
+            initFirebase();
+        });
 
         // Si otro panel/celular cambia las zonas, actualizar aqui tambien (en vivo)
-        db.ref('/zonas').on('value', (snap) => {
+        listoAuth.then(() => db.ref('/zonas').on('value', (snap) => {
             const data = snap.val();
             if (!data) return;
             const nuevasZonas = Object.values(data);
@@ -4063,10 +4077,10 @@
             localStorage.setItem('zonas', JSON.stringify(zonas));
             renderizarZonas();
             dibujarZonasEnMapa();
-        });
+        }));
 
         // Perfiles (emoji/color/nombre elegidos desde la app del celular)
-        db.ref('/perfiles').on('value', (snap) => {
+        listoAuth.then(() => db.ref('/perfiles').on('value', (snap) => {
             const data = snap.val();
             if (!data) return;
             Object.entries(data).forEach(([id, perfil]) => { perfilesRemotos[id] = perfil; });
@@ -4074,7 +4088,7 @@
             Object.keys(perfilesRemotos).forEach(id => obtenerConfigDispositivo(id));
             renderizarDispositivos();
             refrescarAvataresEnMapa();
-        });
+        }));
 
         // Actualizar tiempo cada segundo
         setInterval(actualizarTiempo, 1000);

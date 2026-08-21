@@ -1395,8 +1395,11 @@
                             </select>
                             <div id="micro-ver-resultado" class="micro-resultado"></div>
 
-                            <button class="btn-dibujar" id="btn-dibujar-camino" onclick="iniciarDibujoCamino()" style="display:none;">
+                            <button class="btn-dibujar" id="btn-dibujar-camino" onclick="iniciarDibujoCamino(false)" style="display:none;">
                                 ✏️ Dibujar el camino a mano
+                            </button>
+                            <button class="btn-dibujar" id="btn-continuar-dibujo" onclick="iniciarDibujoCamino(true)" style="display:none;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent-cyan);">
+                                ➕ Continuar dibujo desde donde quedó
                             </button>
                             <button class="btn-dibujar borrar" id="btn-borrar-camino-manual" onclick="borrarCaminoManual()" style="display:none;">
                                 🗑️ Borrar camino dibujado
@@ -2770,14 +2773,20 @@
 
             btnDibujar.style.display = '';
 
+            const btnContinuar = document.getElementById('btn-continuar-dibujo');
+
             // 1ra prioridad: camino dibujado a mano (el mas confiable, lo trazaste tu)
             const manual = rutasManuales[micro] && rutasManuales[micro][sentido];
             if (manual && manual.puntos && manual.puntos.length > 1) {
                 dibujarRecorridoManual(micro, sentido, manual.puntos);
                 btnBorrarManual.style.display = '';
+                btnContinuar.style.display = '';
+                document.getElementById('btn-dibujar-camino').textContent = '✏️ Rehacer desde cero';
                 return;
             }
             btnBorrarManual.style.display = 'none';
+            btnContinuar.style.display = 'none';
+            document.getElementById('btn-dibujar-camino').textContent = '✏️ Dibujar el camino a mano';
 
             // 2da prioridad: referencia real de Moovit
             const referencia = referenciaRutas[micro] && referenciaRutas[micro][sentido];
@@ -2835,6 +2844,48 @@
         let marcadoresDibujoTmp = [];
         let clickMapaDibujoHandler = null;
 
+
+        
+
+        // Capa de referencia (Moovit real, o aproximacion por paraderos+OSRM) que se
+        // muestra tenue de fondo mientras dibujas a mano, para que veas por donde
+        // va aproximadamente aunque no te sepas el 100% del recorrido.
+        let capaReferenciaDibujo = null;
+
+        function limpiarReferenciaDibujo() {
+            if (capaReferenciaDibujo) { mapa.removeLayer(capaReferenciaDibujo); capaReferenciaDibujo = null; }
+        }
+
+        async function mostrarReferenciaDibujo(micro, sentido) {
+            const referenciaMoovit = referenciaRutas[micro] && referenciaRutas[micro][sentido];
+            let puntosRef = null;
+
+            if (referenciaMoovit && referenciaMoovit.length > 0) {
+                // 1ra prioridad: datos reales de Moovit, ya vienen en el orden correcto
+                puntosRef = referenciaMoovit.slice().sort((a, b) => a.orden - b.orden).map(p => [p.lat, p.lon]);
+            } else {
+                // 2da: aproximacion por tus paraderos confirmados, trazada por calles reales
+                const paraderosSentido = ordenarPorCercania(paraderosDeMicroSentido(micro, sentido));
+                if (paraderosSentido.length >= 2) {
+                    const puntosParaderos = paraderosSentido.map(p => [p.lat, p.lon]);
+                    const rutaOSRM = await obtenerRutaPorCalles(puntosParaderos);
+                    puntosRef = rutaOSRM ? rutaOSRM.coords : puntosParaderos;
+                }
+            }
+
+            if (!puntosRef || puntosRef.length < 2) return;
+
+            capaReferenciaDibujo = L.polyline(puntosRef, {
+                color: '#00d4ff', weight: 4, opacity: 0.4, dashArray: '3, 9'
+            }).addTo(mapa);
+            if (capaReferenciaDibujo.bringToBack) capaReferenciaDibujo.bringToBack();
+        }
+
+
+
+
+
+
         function limpiarDibujoTemporal() {
             if (capaDibujoTmp) { mapa.removeLayer(capaDibujoTmp); capaDibujoTmp = null; }
             marcadoresDibujoTmp.forEach(m => mapa.removeLayer(m));
@@ -2854,21 +2905,43 @@
             });
         }
 
-        function iniciarDibujoCamino() {
+
+
+
+
+
+
+        function iniciarDibujoCamino(continuar) {
             const micro = document.getElementById('micro-ver').value;
             const sentido = document.getElementById('micro-ver-sentido').value;
             if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
 
             dibujandoCamino = true;
-            puntosDibujo = [];
             limpiarRecorrido();
             limpiarDibujoTemporal();
+            limpiarReferenciaDibujo();
+
+            // Si se pidio continuar y ya hay un camino guardado, se retoma desde ahi
+            const existente = rutasManuales[micro] && rutasManuales[micro][sentido];
+            if (continuar && existente && existente.puntos && existente.puntos.length) {
+                puntosDibujo = existente.puntos.map(p => [p[0], p[1]]);
+            } else {
+                puntosDibujo = [];
+            }
+            redibujarTrazoDibujo();
+
+            // Referencia tenue de fondo (Moovit o aproximacion) para guiarte
+            mostrarReferenciaDibujo(micro, sentido);
 
             document.getElementById('btn-dibujar-camino').style.display = 'none';
+            document.getElementById('btn-continuar-dibujo').style.display = 'none';
             document.getElementById('btn-borrar-camino-manual').style.display = 'none';
             document.getElementById('micro-dibujo-controles').style.display = 'flex';
-            document.getElementById('micro-ver-resultado').innerHTML =
-                '<div class="micro-exito">✏️ Modo dibujo activo: toca el mapa para ir marcando el camino en orden. Cuando termines, toca "Guardar".</div>';
+
+            const mensajeInicio = continuar && puntosDibujo.length
+                ? `✏️ Retomando desde ${puntosDibujo.length} puntos ya marcados. Sigue tocando el mapa para continuar el trazo.`
+                : '✏️ Modo dibujo activo: toca el mapa para ir marcando el camino en orden. Cuando termines, toca "Guardar".';
+            document.getElementById('micro-ver-resultado').innerHTML = `<div class="micro-exito">${mensajeInicio}</div>`;
 
             desactivarSeguimiento();
             clickMapaDibujoHandler = (e) => {
@@ -2877,6 +2950,9 @@
             };
             mapa.on('click', clickMapaDibujoHandler);
         }
+
+
+
 
         function deshacerPuntoDibujo() {
             puntosDibujo.pop();
@@ -2914,6 +2990,7 @@
             dibujandoCamino = false;
             if (clickMapaDibujoHandler) { mapa.off('click', clickMapaDibujoHandler); clickMapaDibujoHandler = null; }
             limpiarDibujoTemporal();
+            limpiarReferenciaDibujo();
             puntosDibujo = [];
             document.getElementById('micro-dibujo-controles').style.display = 'none';
             document.getElementById('btn-dibujar-camino').style.display = '';

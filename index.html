@@ -2105,7 +2105,24 @@
                     })
                 }).addTo(mapa);
 
-                marker.bindPopup(`<b>${zona.nombre}</b><br>Radio: ${zona.radio}m`);
+                // Tocar el circulo o el marcador abre el modal de edicion directo
+                // (ese modal ya trae su propio boton 🗑 para eliminar).
+                // stopPropagation: sin esto, el clic tambien "burbujea" al mapa
+                // y el listener general (que cierra popups) lo cerraria al toque.
+                circulo.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    editarZona(index);
+                });
+
+                marker.bindPopup(`
+                    <div style="font-family:Segoe UI,sans-serif;min-width:150px;">
+                        <b>${zona.nombre}</b><br>Radio: ${zona.radio}m
+                        <button onclick="mapa.closePopup(); editarZona(${index})"
+                                style="width:100%;margin-top:8px;padding:7px;border:none;border-radius:8px;background:#00d4ff22;color:#0088aa;font-weight:700;cursor:pointer;font-size:0.76rem;">
+                            ✏️ Editar / Eliminar
+                        </button>
+                    </div>
+                `);
 
                 zonasCirculos.push(circulo);
                 zonasCirculos.push(marker);
@@ -2904,6 +2921,7 @@
         function abrirFormularioParadero(lat, lon, precision) {
             paraderoPendiente = { lat, lon };
             paraderoEditandoId = null; // es uno nuevo
+            limpiarEdicionParadero(); // por si quedo un pin sobrante de una edicion anterior
 
             const form = document.getElementById('paradero-form');
             form.classList.add('visible');
@@ -2934,6 +2952,38 @@
         }
 
         // Abre el mismo formulario pero cargado con los datos de un paradero ya guardado
+        // Pin arrastrable para ajustar la posicion de un paradero mientras se
+        // edita, sin tener que ir fisicamente al lugar (para correcciones chicas).
+        let edicionParaderoMarker = null;
+
+        function limpiarEdicionParadero() {
+            if (edicionParaderoMarker) {
+                mapa.removeLayer(edicionParaderoMarker);
+                edicionParaderoMarker = null;
+            }
+        }
+
+        function mostrarPinArrastrableParadero(lat, lon) {
+            limpiarEdicionParadero();
+            edicionParaderoMarker = L.marker([lat, lon], {
+                draggable: true,
+                icon: L.divIcon({
+                    className: '',
+                    html: `<div style="width:30px;height:30px;border-radius:50%;background:#fff;
+                            border:3px solid #ffaa00;box-shadow:0 0 14px #ffaa00;
+                            display:flex;align-items:center;justify-content:center;font-size:15px;">✋</div>`,
+                    iconSize: [30, 30], iconAnchor: [15, 15]
+                })
+            }).addTo(mapa);
+
+            edicionParaderoMarker.on('drag', (e) => {
+                const pos = e.target.getLatLng();
+                paraderoPendiente = { lat: pos.lat, lon: pos.lng };
+                document.getElementById('paradero-form-coords').textContent =
+                    `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)} (arrastrado)`;
+            });
+        }
+
         window.editarParadero = function(id, evento) {
             if (evento) evento.stopPropagation();
             const p = paraderos.find(x => x.id === id);
@@ -2961,6 +3011,8 @@
             document.getElementById('paradero-micros-sc').value = sinConfirmarPrevio.join(', ');
             document.getElementById('paradero-nota').value = p.nota || '';
 
+            mostrarPinArrastrableParadero(p.lat, p.lon);
+
             const panel = document.getElementById('paraderos-panel');
             if (!panel.classList.contains('abierto')) toggleParaderos();
             form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2977,6 +3029,9 @@
                     paraderoPendiente = { lat: pos.coords.latitude, lon: pos.coords.longitude };
                     document.getElementById('paradero-form-coords').textContent =
                         `${paraderoPendiente.lat.toFixed(6)}, ${paraderoPendiente.lon.toFixed(6)} · ±${Math.round(pos.coords.accuracy)}m (nueva)`;
+                    // Mover tambien el pin arrastrable a la nueva posicion, para que
+                    // quede sincronizado y lo puedas seguir afinando a mano si quieres
+                    if (edicionParaderoMarker) edicionParaderoMarker.setLatLng([paraderoPendiente.lat, paraderoPendiente.lon]);
                     mostrarToast('Posición actualizada, ahora guarda', 'success');
                 },
                 () => mostrarToast('No se pudo obtener el GPS', 'error'),
@@ -2987,6 +3042,7 @@
         function cancelarParadero() {
             paraderoPendiente = null;
             paraderoEditandoId = null;
+            limpiarEdicionParadero();
             document.getElementById('paradero-form').classList.remove('visible');
         }
 
@@ -3146,10 +3202,20 @@
                 if (!lineasMicros) lineasMicros = '<div>Sin micros anotadas</div>';
 
                 marcador.bindPopup(
-                    `<div style="font-family:Segoe UI,sans-serif;min-width:170px;">
+                    `<div style="font-family:Segoe UI,sans-serif;min-width:180px;">
                         <div style="font-weight:700;margin-bottom:4px;">🚏 ${p.nombre}</div>
                         <div style="font-size:0.82rem;color:#333;line-height:1.5;">${lineasMicros}</div>
                         ${p.nota ? `<div style="font-size:0.78rem;color:#666;margin-top:4px;">${p.nota}</div>` : ''}
+                        <div style="display:flex;gap:6px;margin-top:9px;">
+                            <button onclick="mapa.closePopup(); window.editarParadero('${p.id}')"
+                                    style="flex:1;padding:7px;border:none;border-radius:8px;background:#00d4ff22;color:#0088aa;font-weight:700;cursor:pointer;font-size:0.76rem;">
+                                ✏️ Editar
+                            </button>
+                            <button onclick="mapa.closePopup(); window.borrarParadero('${p.id}')"
+                                    style="padding:7px 10px;border:none;border-radius:8px;background:#ff444422;color:#cc2222;font-weight:700;cursor:pointer;font-size:0.76rem;">
+                                🗑️
+                            </button>
+                        </div>
                     </div>`
                 );
 

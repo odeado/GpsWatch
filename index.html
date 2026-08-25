@@ -1189,20 +1189,20 @@
     <div class="alertas-contenedor">
         <!-- BANNER DE PANICO / EMERGENCIA (maxima prioridad) -->
         <div class="alerta-panico-banner" id="alerta-panico-banner">
-            <span class="alerta-icono">🆘</span>
+            <span class="alerta-icono">??</span>
             <span id="alerta-panico-texto">Emergencia</span>
             <button class="alerta-panico-btn" onclick="window.reconocerPanico()">Marcar visto</button>
         </div>
 
         <!-- BANNER DE ALERTA DE ZONA -->
         <div class="alerta-zona-banner" id="alerta-zona-banner">
-            <span class="alerta-icono">🏠</span>
+            <span class="alerta-icono">??</span>
             <span id="alerta-zona-texto">¡Llegaste a Casa!</span>
         </div>
 
         <!-- BANNER DE BATERIA BAJA -->
         <div class="alerta-bateria-banner" id="alerta-bateria-banner">
-            <span class="alerta-icono">🔋</span>
+            <span class="alerta-icono">??</span>
             <span id="alerta-bateria-texto">Batería baja</span>
         </div>
     </div>
@@ -1267,13 +1267,13 @@
                     <svg class="icon" style="width:1.2em;height:1.2em;margin:0;"><use href="#icon-bell"/></svg>
                 </button>
                 <button class="header-btn" onclick="toggleNotificaciones()" id="btn-notificaciones" title="Notificaciones del navegador (funcionan con la pestaña minimizada)">
-                    📲
+                    ??
                 </button>
                 <button class="header-btn" onclick="toggleRutasPorCalles()" id="btn-rutas-calles" title="Rutas por calles (si se apaga, muestra linea recta)" style="color: var(--accent-green);">
-                    🛣️
+                    ???
                 </button>
                 <button class="header-btn" onclick="activarNotificacionesPush()" id="btn-push-real" title="Notificaciones push reales (funcionan con el navegador cerrado)">
-                    📡
+                    ??
                 </button>
             </div>
         </div>
@@ -1331,13 +1331,13 @@
             <!-- Mapa -->
             <div class="card map-card" style="padding: 0; overflow: hidden;">
                 <div class="buscador-direccion" id="buscador-direccion">
-                    <input type="text" id="buscar-direccion-input" placeholder="🔍 Buscar dirección o calle..."
+                    <input type="text" id="buscar-direccion-input" placeholder="?? Buscar dirección o calle..."
                            onkeypress="if(event.key==='Enter'){ event.preventDefault(); buscarDireccion(); }">
                     <button onclick="buscarDireccion()" id="btn-buscar-direccion">Buscar</button>
                 </div>
                 <div class="pildora-seguimiento" id="pildora-seguimiento" onclick="alternarSeguimiento()"></div>
                 <div class="btn-brujula" id="btn-brujula" onclick="mapa.setBearing(0)" title="Volver al norte">
-                    <div class="btn-brujula-flecha" id="btn-brujula-flecha">▲</div>
+                    <div class="btn-brujula-flecha" id="btn-brujula-flecha">?</div>
                 </div>
                 <div id="mapa"></div>
             </div>
@@ -1358,7 +1358,7 @@
                         <button class="btn btn-secondary" id="btn-vista" onclick="cambiarVista()"><svg class="icon-btn"><use href="#icon-layers"/></svg>Vista</button>
                     </div>
                     <div class="controls">
-                        <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">💬 WhatsApp</button>
+                        <button class="btn btn-whatsapp" onclick="enviarWhatsapp()">?? WhatsApp</button>
                     </div>
                 </div>
 
@@ -1379,7 +1379,7 @@
                 <!-- Micros y recorridos -->
                 <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleMicros()">
-                        🚌 Micros
+                        ?? Micros
                         <span id="micros-badge" class="eventos-badge"></span>
                         <svg class="icon" id="icon-micros-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
                     </div>
@@ -1396,20 +1396,23 @@
                             <div id="micro-ver-resultado" class="micro-resultado"></div>
 
                             <button class="btn-dibujar" id="btn-dibujar-camino" onclick="iniciarDibujoCamino(false)" style="display:none;">
-                                ✏️ Dibujar el camino a mano
+                                ?? Dibujar el camino a mano
                             </button>
                             <div class="micro-dibujo-controles" id="botones-continuar-dibujo" style="display:none;">
-                                <button onclick="iniciarDibujoCamino(true, false)" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent-cyan);">➕ Seguir desde el final</button>
-                                <button onclick="iniciarDibujoCamino(true, true)" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent-cyan);">⏮️ Seguir desde el inicio</button>
+                                <button onclick="iniciarDibujoCamino(true, false)" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent-cyan);">? Seguir desde el final</button>
+                                <button onclick="iniciarDibujoCamino(true, true)" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--accent-cyan);">?? Seguir desde el inicio</button>
                             </div>
                             <button class="btn-dibujar borrar" id="btn-borrar-camino-manual" onclick="borrarCaminoManual()" style="display:none;">
-                                🗑️ Borrar camino dibujado
+                                ??? Borrar camino dibujado
+                            </button>
+                            <button class="btn-dibujar" id="btn-corregir-tramo" onclick="iniciarCorreccionTramo()" style="display:none;background:rgba(255,102,170,0.1);border-color:rgba(255,102,170,0.3);color:#ff66aa;">
+                                ??? Corregir solo un tramo
                             </button>
 
                             <div class="micro-dibujo-controles" id="micro-dibujo-controles" style="display:none;">
-                                <button onclick="deshacerPuntoDibujo()">↩️ Deshacer</button>
-                                <button onclick="guardarCaminoDibujado()">💾 Guardar</button>
-                                <button onclick="cancelarDibujoCamino()">✕ Cancelar</button>
+                                <button onclick="deshacerPuntoDibujo()">?? Deshacer</button>
+                                <button onclick="guardarCaminoDibujado()">?? Guardar</button>
+                                <button onclick="cancelarDibujoCamino()">? Cancelar</button>
                             </div>
                         </div>
 
@@ -1440,13 +1443,13 @@
                 <!-- Paraderos de micro -->
                 <div class="card">
                     <div class="card-title" style="cursor:pointer;" onclick="toggleParaderos()">
-                        🚏 Paraderos
+                        ?? Paraderos
                         <span id="paraderos-badge" class="eventos-badge"></span>
                         <svg class="icon" id="icon-paraderos-toggle" style="margin-left:auto;margin-right:0;"><use href="#icon-chevron-down"/></svg>
                     </div>
                     <div class="paraderos-panel" id="paraderos-panel">
                         <button class="btn btn-marcar" onclick="marcarParaderoAqui()">
-                            📌 Marcar paradero aquí (GPS)
+                            ?? Marcar paradero aquí (GPS)
                         </button>
                         <div class="paradero-hint">
                             Párate en el paradero y toca el botón: toma tu ubicación exacta.
@@ -1455,22 +1458,22 @@
 
                         <!-- Formulario (aparece al capturar) -->
                         <div class="paradero-form" id="paradero-form">
-                            <div class="paradero-form-titulo" id="paradero-form-titulo">🚏 Nuevo paradero</div>
+                            <div class="paradero-form-titulo" id="paradero-form-titulo">?? Nuevo paradero</div>
                             <div class="paradero-form-coords" id="paradero-form-coords">--</div>
                             <input type="text" id="paradero-nombre" placeholder="Nombre (ej: Paradero Plaza)">
 
-                            <label class="paradero-form-label">➡️ Micros Norte → Sur</label>
+                            <label class="paradero-form-label">?? Micros Norte ? Sur</label>
                             <input type="text" id="paradero-micros-ns" placeholder="Ej: 103, 129">
 
-                            <label class="paradero-form-label">⬅️ Micros Sur → Norte</label>
+                            <label class="paradero-form-label">?? Micros Sur ? Norte</label>
                             <input type="text" id="paradero-micros-sn" placeholder="Ej: 121, 103">
 
-                            <label class="paradero-form-label">❓ Otras (sentido sin confirmar aún)</label>
+                            <label class="paradero-form-label">? Otras (sentido sin confirmar aún)</label>
                             <input type="text" id="paradero-micros-sc" placeholder="Micros que pasan pero no sabes el sentido">
 
                             <input type="text" id="paradero-nota" placeholder="Nota (opcional: hacia el centro, etc)">
                             <button class="btn-reubicar" id="btn-reubicar-paradero" onclick="reubicarParaderoAqui()" style="display:none;">
-                                📍 Estoy aquí ahora - corregir posición
+                                ?? Estoy aquí ahora - corregir posición
                             </button>
                             <div class="paradero-form-btns">
                                 <button class="popup-btn cancelar" onclick="cancelarParadero()">Cancelar</button>
@@ -1513,7 +1516,7 @@
                     <div class="contactos-panel" id="contactos-panel">
                         <div id="contactos-lista"></div>
                         <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;padding:8px;background:rgba(0,0,0,0.1);border-radius:8px;">
-                            💡 Los numeros se guardan en este navegador. Agrega +56 para Chile.
+                            ?? Los numeros se guardan en este navegador. Agrega +56 para Chile.
                         </div>
                     </div>
                 </div>
@@ -1546,13 +1549,13 @@
                             </select>
                             <select id="eventos-filtro-tipo" onchange="renderizarEventos()">
                                 <option value="">Todo tipo</option>
-                                <option value="llegada">🏠 Llegadas</option>
-                                <option value="salida">🚪 Salidas</option>
-                                <option value="bateria">🔋 Batería</option>
-                                <option value="panico">🆘 Pánico</option>
+                                <option value="llegada">?? Llegadas</option>
+                                <option value="salida">?? Salidas</option>
+                                <option value="bateria">?? Batería</option>
+                                <option value="panico">?? Pánico</option>
                             </select>
                         </div>
-                        <button class="btn-exportar" onclick="exportarEventosCSV()">⬇️ Exportar CSV</button>
+                        <button class="btn-exportar" onclick="exportarEventosCSV()">?? Exportar CSV</button>
                         <div id="eventos-lista"></div>
                     </div>
                 </div>
@@ -1572,9 +1575,9 @@
                         </select>
                         <select id="reproductor-fecha" onchange="cambiarFechaReproductor()"></select>
                         <div class="reproductor-controles">
-                            <button class="btn-icon" onclick="retroceder()" title="Punto anterior">⏮</button>
-                            <button class="btn-icon" id="btn-play" onclick="togglePlay()" title="Reproducir/Pausar">▶</button>
-                            <button class="btn-icon" onclick="avanzar()" title="Punto siguiente">⏭</button>
+                            <button class="btn-icon" onclick="retroceder()" title="Punto anterior">?</button>
+                            <button class="btn-icon" id="btn-play" onclick="togglePlay()" title="Reproducir/Pausar">?</button>
+                            <button class="btn-icon" onclick="avanzar()" title="Punto siguiente">?</button>
                             <select id="reproductor-velocidad">
                                 <option value="1">1x</option>
                                 <option value="2">2x</option>
@@ -1584,7 +1587,7 @@
                         </div>
                         <input type="range" id="reproductor-slider" min="0" max="0" value="0" oninput="moverSlider(this.value)">
                         <div class="reproductor-info" id="reproductor-info">Abre este panel para ver el historial de rutas</div>
-                        <button class="btn-exportar" onclick="exportarRutaCSV()">⬇️ Exportar CSV</button>
+                        <button class="btn-exportar" onclick="exportarRutaCSV()">?? Exportar CSV</button>
                     </div>
                 </div>
 
@@ -1601,8 +1604,8 @@
 
         // ===== CONFIGURACION =====
         const firebaseConfig = {
-            // 👉 Estos 4 datos son NUEVOS, necesarios solo para las notificaciones
-            // push reales. Sacalos de: Firebase Console > ⚙️ Configuracion del
+            // ?? Estos 4 datos son NUEVOS, necesarios solo para las notificaciones
+            // push reales. Sacalos de: Firebase Console > ?? Configuracion del
             // proyecto > General > tu app web > "Config" (el objeto firebaseConfig).
             apiKey: "AIzaSyAMGi4dczBL1VYdSx9UUsCsmlp1i3Hcw_w",
             authDomain: "sensorgps-a3027.firebaseapp.com",
@@ -1616,7 +1619,7 @@
         const db = firebase.database();
 
         // ===== NOTIFICACIONES PUSH REALES (funcionan con el navegador cerrado) =====
-        // 👉 Sacar la VAPID key de: Firebase Console > Configuracion del proyecto >
+        // ?? Sacar la VAPID key de: Firebase Console > Configuracion del proyecto >
         // Cloud Messaging > pestaña "Web configuration" > "Generar par de claves".
         const VAPID_KEY = "BNHwN1k5v8YATRK_gzi-0PjU37Sn4J8exHZgFNSBRi8unuQ_c94x7NtFQEsfsAtRb3YWyfLuj4D4U_xiopEn34U";
 
@@ -1658,7 +1661,7 @@
                     });
                     localStorage.setItem('fcm_token_activo', '1');
                     document.getElementById('btn-push-real').style.color = 'var(--accent-green)';
-                    mostrarToast('Notificaciones push activadas ✅ (avisan aunque cierres el navegador)', 'success');
+                    mostrarToast('Notificaciones push activadas ? (avisan aunque cierres el navegador)', 'success');
                 } else {
                     mostrarToast('No se pudo obtener el token de notificaciones', 'error');
                 }
@@ -1688,18 +1691,18 @@
 
         // ===== AVATARES POR DISPOSITIVO =====
         const AVATARES = {
-            'telefono1': { emoji: '👤', color: '#00ff88', nombre: 'Telefono 1', telefono: '' },
-            'telefono2': { emoji: '👩', color: '#00d4ff', nombre: 'Telefono 2', telefono: '' },
-            'teresa':    { emoji: '👩', color: '#aa66ff', nombre: 'Teresa', telefono: '' },
-            'auto1':     { emoji: '🚗', color: '#ffaa00', nombre: 'Auto', telefono: '' },
-            'ubicacion': { emoji: '📍', color: '#ff66aa', nombre: 'Principal', telefono: '' },
-            'default':   { emoji: '📱', color: '#ff4444', nombre: 'Dispositivo', telefono: '' }
+            'telefono1': { emoji: '??', color: '#00ff88', nombre: 'Telefono 1', telefono: '' },
+            'telefono2': { emoji: '??', color: '#00d4ff', nombre: 'Telefono 2', telefono: '' },
+            'teresa':    { emoji: '??', color: '#aa66ff', nombre: 'Teresa', telefono: '' },
+            'auto1':     { emoji: '??', color: '#ffaa00', nombre: 'Auto', telefono: '' },
+            'ubicacion': { emoji: '??', color: '#ff66aa', nombre: 'Principal', telefono: '' },
+            'default':   { emoji: '??', color: '#ff4444', nombre: 'Dispositivo', telefono: '' }
         };
-        // 👉 La lista de arriba es opcional (solo para poner nombres/colores bonitos a IDs conocidos).
+        // ?? La lista de arriba es opcional (solo para poner nombres/colores bonitos a IDs conocidos).
         // Cualquier dispositivo NUEVO que se conecte (con el nombre que sea, sin limite) recibe
         // automaticamente su propio emoji/color/nombre gracias a obtenerConfigDispositivo().
 
-        const EMOJIS_AUTO = ['🧑', '👩', '👨', '🧔', '👧', '👦', '🐱', '🐶', '🦊', '🐻', '🚗', '🛵', '🚲', '⭐', '🔥', '⚡', '🎯', '🦋', '🐼', '🐨'];
+        const EMOJIS_AUTO = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '?', '??', '?', '??', '??', '??', '??'];
         const COLORES_AUTO = ['#00ff88', '#00d4ff', '#aa66ff', '#ffaa00', '#ff66aa', '#ff4444', '#55eecc', '#ffee55', '#88aaff', '#ff8866'];
 
         function hashTexto(str) {
@@ -1792,13 +1795,13 @@
             const btn = document.getElementById('btn-vista');
 
             if (!vistaSatelite && !vistaOscura) {
-                // Base → Oscuro
+                // Base ? Oscuro
                 mapa.removeLayer(capaBase);
                 capaOscura.addTo(mapa);
                 vistaOscura = true;
                 btn.innerHTML = '<svg class="icon-btn"><use href="#icon-layers"/></svg>Oscuro';
             } else if (vistaOscura) {
-                // Oscuro → Satelite
+                // Oscuro ? Satelite
                 mapa.removeLayer(capaOscura);
                 capaSatelite.addTo(mapa);
                 vistaOscura = false;
@@ -1806,7 +1809,7 @@
                 btn.classList.add('active');
                 btn.innerHTML = '<svg class="icon-btn"><use href="#icon-satellite"/></svg>Satelite';
             } else {
-                // Satelite → Base
+                // Satelite ? Base
                 mapa.removeLayer(capaSatelite);
                 capaBase.addTo(mapa);
                 vistaSatelite = false;
@@ -1897,8 +1900,8 @@
                         ${datos.lat?.toFixed(6)}, ${datos.lon?.toFixed(6)}
                     </div>
                     <div style="font-size:0.8rem;color:#666;margin-top:4px;">
-                        🚀 ${datos.velocidad?.toFixed(1) || 0} km/h | 
-                        🔋 ${datos.bateria || '--'}%
+                        ?? ${datos.velocidad?.toFixed(1) || 0} km/h | 
+                        ?? ${datos.bateria || '--'}%
                     </div>
                 </div>
             `);
@@ -2072,7 +2075,7 @@
                     const item = document.createElement('div');
                     item.className = 'distancia-item';
                     item.innerHTML = `
-                        <span>${config1.emoji} ↔ ${config2.emoji}</span>
+                        <span>${config1.emoji} ? ${config2.emoji}</span>
                         <span class="distancia-valor">${distanciaKm} km</span>
                     `;
                     lista.appendChild(item);
@@ -2115,7 +2118,7 @@
         };
         div.innerHTML = `
             <div class="zona-icono ${zona.tipo === 'casa' ? 'zona-casa' : 'zona-trabajo'}">
-                ${zona.tipo === 'casa' ? '🏠' : '💼'}
+                ${zona.tipo === 'casa' ? '??' : '??'}
             </div>
             <div class="zona-info">
                 <div class="zona-nombre">${zona.nombre}</div>
@@ -2189,7 +2192,7 @@
                 }).addTo(mapa);
 
                 // Tocar el circulo o el marcador abre el modal de edicion directo
-                // (ese modal ya trae su propio boton 🗑 para eliminar).
+                // (ese modal ya trae su propio boton ?? para eliminar).
                 // stopPropagation: sin esto, el clic tambien "burbujea" al mapa
                 // y el listener general (que cierra popups) lo cerraria al toque.
                 circulo.on('click', (e) => {
@@ -2202,7 +2205,7 @@
                         <b>${zona.nombre}</b><br>Radio: ${zona.radio}m
                         <button onclick="mapa.closePopup(); editarZona(${index})"
                                 style="width:100%;margin-top:8px;padding:7px;border:none;border-radius:8px;background:#00d4ff22;color:#0088aa;font-weight:700;cursor:pointer;font-size:0.76rem;">
-                            ✏️ Editar / Eliminar
+                            ?? Editar / Eliminar
                         </button>
                     </div>
                 `);
@@ -2268,7 +2271,7 @@
                     const km = (distancia / 1000).toFixed(2);
                     const m = Math.round(distancia);
                     const texto = m > 1000 ? `${km} km` : `${m} m`;
-                    distEl.innerHTML = `${config.emoji} ${texto} ${dentro ? '<span style="color:#00ff88;">✓ Dentro</span>' : ''}`;
+                    distEl.innerHTML = `${config.emoji} ${texto} ${dentro ? '<span style="color:#00ff88;">? Dentro</span>' : ''}`;
                 }
 
                 // Alerta: entró a la zona
@@ -2276,10 +2279,10 @@
                     zonasAlertadas.add(alertaId + '-entro');
                     zonasAlertadas.delete(alertaId + '-salio');
 
-                    mostrarBannerAlerta(`🏠 ${config.nombre} llegó a ${zona.nombre}!`);
+                    mostrarBannerAlerta(`?? ${config.nombre} llegó a ${zona.nombre}!`);
                     mostrarToast(`${config.nombre} entró a ${zona.nombre}`, 'success');
                     mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Llegó a ${zona.nombre}`, 'verde');
-                    enviarNotificacionPush(`🏠 ${config.nombre} llegó`, `Entró a ${zona.nombre}`);
+                    enviarNotificacionPush(`?? ${config.nombre} llegó`, `Entró a ${zona.nombre}`);
                     registrarEvento('llegada', idDispositivo, `${config.nombre} llegó a ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('entrada');
@@ -2290,10 +2293,10 @@
                     zonasAlertadas.add(alertaId + '-salio');
                     zonasAlertadas.delete(alertaId + '-entro');
 
-                    mostrarBannerAlerta(`🚪 ${config.nombre} salió de ${zona.nombre}`);
+                    mostrarBannerAlerta(`?? ${config.nombre} salió de ${zona.nombre}`);
                     mostrarToast(`${config.nombre} salió de ${zona.nombre}`, 'warning');
                     mostrarAlertaCentro(`${config.emoji} ${config.nombre}`, `Salió de ${zona.nombre}`, 'rojo');
-                    enviarNotificacionPush(`🚪 ${config.nombre} salió`, `Salió de ${zona.nombre}`);
+                    enviarNotificacionPush(`?? ${config.nombre} salió`, `Salió de ${zona.nombre}`);
                     registrarEvento('salida', idDispositivo, `${config.nombre} salió de ${zona.nombre}`);
 
                     if (sonidoActivado) reproducirSonido('salida');
@@ -2346,9 +2349,9 @@
 
             if (bateria <= 20 && !bateriaAlertada.has(id)) {
                 bateriaAlertada.add(id);
-                mostrarBannerBateria(`🔋 ${config.nombre} tiene batería baja (${bateria}%)`);
+                mostrarBannerBateria(`?? ${config.nombre} tiene batería baja (${bateria}%)`);
                 mostrarToast(`${config.nombre}: batería al ${bateria}%`, 'error');
-                enviarNotificacionPush('🔋 Batería baja', `${config.nombre} está al ${bateria}%`);
+                enviarNotificacionPush('?? Batería baja', `${config.nombre} está al ${bateria}%`);
                 registrarEvento('bateria', id, `${config.nombre} con batería baja (${bateria}%)`);
                 if (sonidoActivado) reproducirSonido('bateria');
             } else if (bateria > 25 && bateriaAlertada.has(id)) {
@@ -2384,8 +2387,8 @@
                     idPanicoActual = id;
 
                     mostrarBannerPanico(`${config.emoji} ${config.nombre} activó el BOTÓN DE PÁNICO`);
-                    mostrarToast(`🆘 EMERGENCIA: ${config.nombre}`, 'error');
-                    enviarNotificacionPush('🆘 EMERGENCIA', `${config.nombre} activó el botón de pánico`);
+                    mostrarToast(`?? EMERGENCIA: ${config.nombre}`, 'error');
+                    enviarNotificacionPush('?? EMERGENCIA', `${config.nombre} activó el botón de pánico`);
                     registrarEvento('panico', id, `${config.nombre} activó el BOTÓN DE PÁNICO`);
                     if (sonidoActivado) reproducirSonido('panico');
                 }
@@ -2572,18 +2575,18 @@
 
             const zonasOrdenadas = Object.entries(tiempoPorZona).sort((a, b) => b[1] - a[1]);
             zonasOrdenadas.forEach(([nombre, ms]) => {
-                html += `<div class="resumen-linea"><span>🏠 En ${nombre}</span><span class="valor">${formatearDuracion(ms)}</span></div>`;
+                html += `<div class="resumen-linea"><span>?? En ${nombre}</span><span class="valor">${formatearDuracion(ms)}</span></div>`;
             });
             if (tiempoMoviendose > 0) {
-                html += `<div class="resumen-linea"><span>🚶 En movimiento</span><span class="valor">${formatearDuracion(tiempoMoviendose)}</span></div>`;
+                html += `<div class="resumen-linea"><span>?? En movimiento</span><span class="valor">${formatearDuracion(tiempoMoviendose)}</span></div>`;
             }
             if (primeraSalida) {
-                html += `<div class="resumen-linea"><span>🚪 Primera salida</span><span class="valor">${hora(primeraSalida)}</span></div>`;
+                html += `<div class="resumen-linea"><span>?? Primera salida</span><span class="valor">${hora(primeraSalida)}</span></div>`;
             }
             if (ultimaLlegada) {
-                html += `<div class="resumen-linea"><span>🏁 Última llegada</span><span class="valor">${hora(ultimaLlegada)}</span></div>`;
+                html += `<div class="resumen-linea"><span>?? Última llegada</span><span class="valor">${hora(ultimaLlegada)}</span></div>`;
             }
-            html += `<div class="resumen-linea"><span>📍 Puntos registrados</span><span class="valor">${puntos.length}</span></div>`;
+            html += `<div class="resumen-linea"><span>?? Puntos registrados</span><span class="valor">${puntos.length}</span></div>`;
 
             cont.innerHTML = html;
         }
@@ -2610,6 +2613,19 @@
         let rutasManuales = {};
         db.ref('/rutas_manuales').on('value', (snap) => {
             rutasManuales = snap.val() || {};
+            const microActual = document.getElementById('micro-ver')?.value;
+            const sentidoActual = document.getElementById('micro-ver-sentido')?.value;
+            if (microActual && sentidoActual && !dibujandoCamino) verRecorridoMicro();
+        });
+
+        // Correcciones puntuales: PARCHES chicos sobre una ruta base (Moovit o
+        // la aproximacion), para cuando la base ya es casi perfecta y solo un
+        // tramo esta mal - no hace falta redibujar todo el camino de nuevo,
+        // solo el pedazo que fallo. Se dibujan encima, en rosado, sin borrar
+        // la base de abajo.
+        let correccionesRutas = {};
+        db.ref('/rutas_correcciones').on('value', (snap) => {
+            correccionesRutas = snap.val() || {};
             const microActual = document.getElementById('micro-ver')?.value;
             const sentidoActual = document.getElementById('micro-ver-sentido')?.value;
             if (microActual && sentidoActual && !dibujandoCamino) verRecorridoMicro();
@@ -2737,9 +2753,9 @@
 
             if (sentidos.length > 0) {
                 const etiquetas = {
-                    norte_sur: '➡️ Norte → Sur',
-                    sur_norte: '⬅️ Sur → Norte',
-                    sin_confirmar: '❓ Sin confirmar'
+                    norte_sur: '?? Norte ? Sur',
+                    sur_norte: '?? Sur ? Norte',
+                    sin_confirmar: '? Sin confirmar'
                 };
                 selSentido.innerHTML = sentidos.map(s => `<option value="${s}">${etiquetas[s] || s}</option>`).join('');
                 selSentido.style.display = '';
@@ -2758,36 +2774,42 @@
 
             const btnDibujar = document.getElementById('btn-dibujar-camino');
             const btnBorrarManual = document.getElementById('btn-borrar-camino-manual');
+            const btnCorregirTramo = document.getElementById('btn-corregir-tramo');
 
             if (!micro) {
                 cont.innerHTML = '';
                 btnDibujar.style.display = 'none';
                 btnBorrarManual.style.display = 'none';
+                btnCorregirTramo.style.display = 'none';
                 return;
             }
             if (!sentido) {
                 cont.innerHTML = '<div class="micro-fallo">Elige un sentido para ver el recorrido</div>';
                 btnDibujar.style.display = 'none';
                 btnBorrarManual.style.display = 'none';
+                btnCorregirTramo.style.display = 'none';
                 return;
             }
 
             btnDibujar.style.display = '';
+            btnCorregirTramo.style.display = 'none'; // solo se vuelve a mostrar si la rama Moovit/aproximada lo activa
 
             const contenedorContinuar = document.getElementById('botones-continuar-dibujo');
 
             // 1ra prioridad: camino dibujado a mano (el mas confiable, lo trazaste tu)
+            // Aca no aplican los parches: si ya dibujaste el camino completo a mano,
+            // "corregir un tramo" no tiene sentido, se edita el camino entero.
             const manual = rutasManuales[micro] && rutasManuales[micro][sentido];
             if (manual && manual.puntos && manual.puntos.length > 1) {
                 dibujarRecorridoManual(micro, sentido, manual.puntos);
                 btnBorrarManual.style.display = '';
                 contenedorContinuar.style.display = 'flex';
-                document.getElementById('btn-dibujar-camino').textContent = '✏️ Rehacer desde cero';
+                document.getElementById('btn-dibujar-camino').textContent = '?? Rehacer desde cero';
                 return;
             }
             btnBorrarManual.style.display = 'none';
             contenedorContinuar.style.display = 'none';
-            document.getElementById('btn-dibujar-camino').textContent = '✏️ Dibujar el camino a mano';
+            document.getElementById('btn-dibujar-camino').textContent = '?? Dibujar el camino a mano';
 
 
 
@@ -2817,7 +2839,7 @@
                         className: '',
                         html: `<div style="width:26px;height:26px;border-radius:50%;background:#00ff88;
                                 border:3px solid #fff;box-shadow:0 0 10px #00ff88;color:#0a0a14;
-                                display:flex;align-items:center;justify-content:center;font-size:13px;">🚏</div>`,
+                                display:flex;align-items:center;justify-content:center;font-size:13px;">??</div>`,
                         iconSize: [26, 26], iconAnchor: [13, 13]
                     })
                 }).addTo(mapa);
@@ -2830,12 +2852,12 @@
             mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.15));
             setTimeout(() => { movimientoProgramatico = false; }, 600);
 
-            const etiquetas = { norte_sur: 'Norte → Sur', sur_norte: 'Sur → Norte', sin_confirmar: 'sin confirmar' };
+            const etiquetas = { norte_sur: 'Norte ? Sur', sur_norte: 'Sur ? Norte', sin_confirmar: 'sin confirmar' };
             const etiquetaSentido = etiquetas[sentido] || sentido;
 
             cont.innerHTML = `
                 <div class="micro-exito" style="margin-bottom:0;">
-                    ✏️ Camino dibujado a mano (${etiquetaSentido}) — ${puntos.length} puntos marcados.
+                    ?? Camino dibujado a mano (${etiquetaSentido}) — ${puntos.length} puntos marcados.
                     ${propios.length ? `<br>${propios.length} paraderos tuyos confirmados en este trazo.` : ''}
                 </div>
             `;
@@ -2848,6 +2870,7 @@
         let marcadoresDibujoTmp = [];
         let clickMapaDibujoHandler = null;
         let dibujoInvertido = false; // true = se continua desde el inicio (hay que revertir al guardar)
+        let modoDibujoActual = 'completo'; // 'completo' = redibuja toda la ruta | 'correccion' = agrega un parche encima de la base
 
 
         
@@ -2937,6 +2960,7 @@
             if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
 
             dibujandoCamino = true;
+            modoDibujoActual = 'completo';
             dibujoInvertido = false;
             limpiarRecorrido();
             limpiarDibujoTemporal();
@@ -2967,13 +2991,53 @@
 
             let mensajeInicio;
             if (continuar && puntosDibujo.length && desdeInicio) {
-                mensajeInicio = `✏️ Retomando desde el INICIO del trazo (${puntosDibujo.length} puntos). Los nuevos puntos se agregarán antes del comienzo original.`;
+                mensajeInicio = `?? Retomando desde el INICIO del trazo (${puntosDibujo.length} puntos). Los nuevos puntos se agregarán antes del comienzo original.`;
             } else if (continuar && puntosDibujo.length) {
-                mensajeInicio = `✏️ Retomando desde ${puntosDibujo.length} puntos ya marcados. Sigue tocando el mapa para continuar.`;
+                mensajeInicio = `?? Retomando desde ${puntosDibujo.length} puntos ya marcados. Sigue tocando el mapa para continuar.`;
             } else {
-                mensajeInicio = '✏️ Modo dibujo activo: toca el mapa para marcar el camino en orden. Puedes arrastrar los puntos verdes para ajustarlos. Cuando termines, toca "Guardar".';
+                mensajeInicio = '?? Modo dibujo activo: toca el mapa para marcar el camino en orden. Puedes arrastrar los puntos verdes para ajustarlos. Cuando termines, toca "Guardar".';
             }
             document.getElementById('micro-ver-resultado').innerHTML = `<div class="micro-exito">${mensajeInicio}</div>`;
+
+            desactivarSeguimiento();
+            clickMapaDibujoHandler = (e) => {
+                puntosDibujo.push([e.latlng.lat, e.latlng.lng]);
+                redibujarTrazoDibujo();
+            };
+            mapa.on('click', clickMapaDibujoHandler);
+        }
+
+        // Modo "parche": en vez de redibujar toda la ruta, solo se marca el
+        // tramo corto donde la base (Moovit o aproximacion) se equivoco. La
+        // base se deja dibujada de fondo (ya esta en el mapa, no se toca) para
+        // que sea facil ver donde exactamente hay que corregir.
+        function iniciarCorreccionTramo() {
+            const micro = document.getElementById('micro-ver').value;
+            const sentido = document.getElementById('micro-ver-sentido').value;
+            if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
+
+            dibujandoCamino = true;
+            modoDibujoActual = 'correccion';
+            dibujoInvertido = false;
+            puntosDibujo = [];
+            limpiarDibujoTemporal();
+            // OJO: a diferencia del modo completo, aca NO se llama limpiarRecorrido()
+            // - la base (Moovit/aproximacion) se queda dibujada en el mapa a proposito,
+            // para poder marcar el parche justo al lado de donde esta el error.
+            redibujarTrazoDibujo();
+
+            document.getElementById('btn-dibujar-camino').style.display = 'none';
+            document.getElementById('btn-corregir-tramo').style.display = 'none';
+            document.getElementById('botones-continuar-dibujo').style.display = 'none';
+            document.getElementById('btn-borrar-camino-manual').style.display = 'none';
+            document.getElementById('micro-dibujo-controles').style.display = 'flex';
+
+            document.getElementById('micro-ver-resultado').innerHTML = `
+                <div class="micro-exito" style="margin-bottom:0;">
+                    ??? Modo corrección: la ruta base queda de fondo. Toca el mapa solo en el tramo que
+                    está mal, marcando el camino correcto. Cuando termines, toca "Guardar".
+                </div>
+            `;
 
             desactivarSeguimiento();
             clickMapaDibujoHandler = (e) => {
@@ -3000,20 +3064,28 @@
                 return;
             }
 
-            // Si veniamos "desde el inicio", el arreglo esta al reves; se revierte
-            // aqui para guardar en el orden real (norte->sur o el que corresponda).
-            const puntosAGuardar = dibujoInvertido ? puntosDibujo.slice().reverse() : puntosDibujo;
-
             try {
-                await db.ref(`/rutas_manuales/${micro}/${sentido}`).set({
-                    puntos: puntosAGuardar,
-                    creado: Date.now()
-                });
-
-
-                mostrarToast('Camino guardado ✅', 'success');
+                if (modoDibujoActual === 'correccion') {
+                    // Un parche mas, sin tocar la base ni las otras correcciones ya guardadas
+                    const id = 'corr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                    await db.ref(`/rutas_correcciones/${micro}/${sentido}/${id}`).set({
+                        puntos: puntosDibujo,
+                        creado: Date.now()
+                    });
+                    mostrarToast('Corrección guardada ?', 'success');
+                } else {
+                    // Camino completo: reemplaza el trazo entero de esta micro+sentido
+                    // Si veniamos "desde el inicio", el arreglo esta al reves; se revierte
+                    // aqui para guardar en el orden real (norte->sur o el que corresponda).
+                    const puntosAGuardar = dibujoInvertido ? puntosDibujo.slice().reverse() : puntosDibujo;
+                    await db.ref(`/rutas_manuales/${micro}/${sentido}`).set({
+                        puntos: puntosAGuardar,
+                        creado: Date.now()
+                    });
+                    mostrarToast('Camino guardado ?', 'success');
+                }
             } catch (e) {
-                console.log('No se pudo guardar el camino dibujado', e);
+                console.log('No se pudo guardar el dibujo', e);
                 mostrarToast('No se pudo guardar', 'error');
             }
             terminarDibujoCamino();
@@ -3027,6 +3099,7 @@
         function terminarDibujoCamino() {
             dibujandoCamino = false;
             dibujoInvertido = false;
+            modoDibujoActual = 'completo';
             if (clickMapaDibujoHandler) { mapa.off('click', clickMapaDibujoHandler); clickMapaDibujoHandler = null; }
             limpiarDibujoTemporal();
             limpiarReferenciaDibujo();
@@ -3051,13 +3124,55 @@
 
         // Dibuja el recorrido REAL (datos de Moovit con coordenadas), en el
         // orden verdadero de las paradas - no es una aproximacion.
+        // Dibuja los parches de correccion guardados para esta micro+sentido,
+        // ENCIMA de la ruta base (Moovit o aproximacion), sin tocar la base.
+        // Devuelve el HTML de la lista (con boton de borrar cada uno) para
+        // mostrar debajo del resultado.
+        function dibujarCorreccionesGuardadas(micro, sentido) {
+            const correcciones = (correccionesRutas[micro] && correccionesRutas[micro][sentido]) || {};
+            const ids = Object.keys(correcciones);
+
+            ids.forEach(id => {
+                const c = correcciones[id];
+                if (!c.puntos || c.puntos.length < 2) return;
+                const capa = L.polyline(c.puntos, {
+                    color: '#ff66aa', weight: 5, opacity: 0.95
+                }).addTo(mapa);
+                marcadoresRecorrido.push(capa); // asi limpiarRecorrido() tambien la borra
+            });
+
+            if (ids.length === 0) return '';
+
+            return `
+                <div style="margin-top:8px;">
+                    ${ids.map(id => `
+                        <div class="micro-paradero-linea" style="cursor:default;">
+                            <span style="color:#ff66aa;">??? Corrección aplicada</span>
+                            <button onclick="borrarCorreccion('${micro}','${sentido}','${id}')"
+                                    style="margin-left:auto;background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.9rem;padding:2px 6px;">?</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        async function borrarCorreccion(micro, sentido, id) {
+            if (!confirm('¿Borrar esta corrección?')) return;
+            try {
+                await db.ref(`/rutas_correcciones/${micro}/${sentido}/${id}`).remove();
+                mostrarToast('Corrección eliminada', 'warning');
+            } catch (e) {
+                mostrarToast('No se pudo borrar', 'error');
+            }
+        }
+
         function dibujarRecorridoReal(micro, sentido, paradasRef) {
             const cont = document.getElementById('micro-ver-resultado');
             const ordenadas = paradasRef.slice().sort((a, b) => a.orden - b.orden);
             const puntos = ordenadas.map(p => [p.lat, p.lon]);
 
             capaRecorrido = L.polyline(puntos, {
-                color: '#00d4ff', weight: 4, opacity: 0.8
+                color: '#00ff88', weight: 4, opacity: 0.8
             }).addTo(mapa);
 
             // Puntitos chicos en cada parada real de Moovit
@@ -3078,7 +3193,7 @@
                         className: '',
                         html: `<div style="width:28px;height:28px;border-radius:50%;background:#ffaa00;
                                 border:3px solid #fff;box-shadow:0 0 12px #ffaa00;color:#0a0a14;
-                                display:flex;align-items:center;justify-content:center;font-size:14px;">🚏</div>`,
+                                display:flex;align-items:center;justify-content:center;font-size:14px;">??</div>`,
                         iconSize: [28, 28], iconAnchor: [14, 14]
                     })
                 }).addTo(mapa);
@@ -3091,12 +3206,16 @@
             mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.15));
             setTimeout(() => { movimientoProgramatico = false; }, 600);
 
-            const etiquetaSentido = sentido === 'norte_sur' ? 'Norte → Sur' : 'Sur → Norte';
+            const listaCorrecciones = dibujarCorreccionesGuardadas(micro, sentido);
+            document.getElementById('btn-corregir-tramo').style.display = '';
+
+            const etiquetaSentido = sentido === 'norte_sur' ? 'Norte ? Sur' : 'Sur ? Norte';
             cont.innerHTML = `
                 <div class="micro-exito" style="margin-bottom:0;">
-                    ✅ Recorrido real (${etiquetaSentido}): ${ordenadas.length} paradas.
-                    ${propios.length ? `<br>De esas, <b>${propios.length}</b> son paraderos tuyos confirmados (🚏 naranjo en el mapa).` : ''}
+                    ? Recorrido real (${etiquetaSentido}): ${ordenadas.length} paradas.
+                    ${propios.length ? `<br>De esas, <b>${propios.length}</b> son paraderos tuyos confirmados (?? naranjo en el mapa).` : ''}
                 </div>
+                ${listaCorrecciones}
             `;
         }
 
@@ -3111,8 +3230,8 @@
             const lista = ordenarPorCercania(paraderosDeMicroSentido(micro, sentido));
 
             const etiquetas = {
-                norte_sur: 'Norte → Sur',
-                sur_norte: 'Sur → Norte',
+                norte_sur: 'Norte ? Sur',
+                sur_norte: 'Sur ? Norte',
                 sin_confirmar: 'sin confirmar'
             };
             const etiquetaSentido = etiquetas[sentido] || sentido;
@@ -3172,16 +3291,19 @@
 
             let notaFinal;
             if (desvioSospechoso) {
-                notaFinal = '⚠️ Este tramo dio una vuelta mucho más larga de lo esperado — probablemente porque esa calle tiene sentido único o giro prohibido ' +
+                notaFinal = '?? Este tramo dio una vuelta mucho más larga de lo esperado — probablemente porque esa calle tiene sentido único o giro prohibido ' +
                     'para un auto normal (una micro puede tener pistas/giros que un auto no tiene). ' +
-                    'Si sabes que en realidad es más directo, considera agregar un paradero justo en la curva para partir el tramo en dos y afinar el trazado.';
+                    'Si sabes que en realidad es más directo, considera agregar un paradero justo en la curva, o corregir el tramo a mano abajo.';
             } else if (porCalles) {
                 notaFinal = 'Camino trazado por calles reales entre tus paraderos confirmados. El ORDEN de las paradas sigue siendo una aproximación (la más cercana a la anterior).';
             } else if (rutasPorCallesActivas) {
                 notaFinal = 'No se pudo trazar por calles esta vez (sin conexión al servicio) — se muestra línea recta de respaldo.';
             } else {
-                notaFinal = 'Rutas por calles desactivadas (🛣️ en el header) — mostrando línea recta.';
+                notaFinal = 'Rutas por calles desactivadas (??? en el header) — mostrando línea recta.';
             }
+
+            const listaCorrecciones = dibujarCorreccionesGuardadas(micro, sentido);
+            document.getElementById('btn-corregir-tramo').style.display = '';
 
             cont.innerHTML = `
                 <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> (${etiquetaSentido}) pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
@@ -3191,6 +3313,7 @@
                         <span>${p.nombre}</span>
                     </div>`).join('')}
                 <div class="micro-nota-aprox" style="${desvioSospechoso ? 'color:#ff8844;' : ''}">${notaFinal}</div>
+                ${listaCorrecciones}
             `;
         }
 
@@ -3218,7 +3341,7 @@
             if (comunes.length > 0) {
                 cont.innerHTML = `
                     <div class="micro-exito">
-                        <div style="font-weight:700;margin-bottom:5px;">✅ Te sirve${comunes.length > 1 ? 'n' : ''}:</div>
+                        <div style="font-weight:700;margin-bottom:5px;">? Te sirve${comunes.length > 1 ? 'n' : ''}:</div>
                         <div class="paradero-micros">${comunes.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
                         <div style="font-size:0.72rem;margin-top:6px;opacity:0.85;">Directo, sin transbordo · ${km} km entre paraderos</div>
                     </div>`;
@@ -3237,7 +3360,7 @@
                     const o = opciones[0];
                     cont.innerHTML = `
                         <div class="micro-fallo">
-                            <div style="font-weight:700;margin-bottom:5px;">🔄 Sin micro directa, pero con transbordo:</div>
+                            <div style="font-weight:700;margin-bottom:5px;">?? Sin micro directa, pero con transbordo:</div>
                             <div style="font-size:0.75rem;line-height:1.6;">
                                 Toma la <b>${o.conA.join(' o ')}</b> hasta <b>${o.p.nombre}</b>,<br>
                                 y de ahí la <b>${o.conB.join(' o ')}</b>.
@@ -3247,7 +3370,7 @@
                 } else {
                     cont.innerHTML = `
                         <div class="micro-fallo">
-                            ❌ No hay micro en común con los datos que tienes.
+                            ? No hay micro en común con los datos que tienes.
                             <div class="micro-nota-aprox">Puede que sí exista una: falta cargar más paraderos o más micros en los que ya tienes.</div>
                         </div>`;
                 }
@@ -3331,7 +3454,7 @@
 
             const form = document.getElementById('paradero-form');
             form.classList.add('visible');
-            document.getElementById('paradero-form-titulo').textContent = '🚏 Nuevo paradero';
+            document.getElementById('paradero-form-titulo').textContent = '?? Nuevo paradero';
             document.getElementById('btn-guardar-paradero').textContent = 'Guardar';
             document.getElementById('btn-reubicar-paradero').style.display = 'none';
 
@@ -3377,7 +3500,7 @@
                     className: '',
                     html: `<div style="width:30px;height:30px;border-radius:50%;background:#fff;
                             border:3px solid #ffaa00;box-shadow:0 0 14px #ffaa00;
-                            display:flex;align-items:center;justify-content:center;font-size:15px;">✋</div>`,
+                            display:flex;align-items:center;justify-content:center;font-size:15px;">?</div>`,
                     iconSize: [30, 30], iconAnchor: [15, 15]
                 })
             }).addTo(mapa);
@@ -3400,7 +3523,7 @@
 
             const form = document.getElementById('paradero-form');
             form.classList.add('visible');
-            document.getElementById('paradero-form-titulo').textContent = '✏️ Editando paradero';
+            document.getElementById('paradero-form-titulo').textContent = '?? Editando paradero';
             document.getElementById('btn-guardar-paradero').textContent = 'Guardar cambios';
             document.getElementById('btn-reubicar-paradero').style.display = '';
 
@@ -3533,17 +3656,17 @@
             let html = '';
             if (ns.length) html += `
                 <div class="paradero-grupo-sentido">
-                    <div class="paradero-grupo-titulo">➡️ Norte → Sur</div>
+                    <div class="paradero-grupo-titulo">?? Norte ? Sur</div>
                     <div class="paradero-micros">${ns.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
                 </div>`;
             if (sn.length) html += `
                 <div class="paradero-grupo-sentido">
-                    <div class="paradero-grupo-titulo">⬅️ Sur → Norte</div>
+                    <div class="paradero-grupo-titulo">?? Sur ? Norte</div>
                     <div class="paradero-micros">${sn.map(m => `<span class="micro-chip">${m}</span>`).join('')}</div>
                 </div>`;
             if (sc.length) html += `
                 <div class="paradero-grupo-sentido">
-                    <div class="paradero-grupo-titulo">❓ Sin confirmar</div>
+                    <div class="paradero-grupo-titulo">? Sin confirmar</div>
                     <div class="paradero-micros">${sc.map(m => `<span class="micro-chip sc">${m}</span>`).join('')}</div>
                 </div>`;
             return html;
@@ -3563,14 +3686,14 @@
                 .sort((a, b) => a.nombre.localeCompare(b.nombre))
                 .map(p => `
                     <div class="paradero-item" onclick="irAParadero('${p.id}')">
-                        <div style="font-size:1.1rem;">🚏</div>
+                        <div style="font-size:1.1rem;">??</div>
                         <div class="paradero-info">
                             <div class="paradero-nombre">${p.nombre}</div>
                             ${chipsPorSentidoHTML(p)}
                             ${p.nota ? `<div class="paradero-nota">${p.nota}</div>` : ''}
                         </div>
-                        <button class="paradero-editar" onclick="editarParadero('${p.id}', event)" title="Editar">✏️</button>
-                        <button class="paradero-borrar" onclick="borrarParadero('${p.id}', event)" title="Borrar">✕</button>
+                        <button class="paradero-editar" onclick="editarParadero('${p.id}', event)" title="Editar">??</button>
+                        <button class="paradero-borrar" onclick="borrarParadero('${p.id}', event)" title="Borrar">?</button>
                     </div>
                 `).join('');
         }
@@ -3592,7 +3715,7 @@
                         className: '',
                         html: `<div style="width:26px;height:26px;border-radius:7px;background:#ffaa00;
                                 border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);
-                                display:flex;align-items:center;justify-content:center;font-size:13px;">🚏</div>`,
+                                display:flex;align-items:center;justify-content:center;font-size:13px;">??</div>`,
                         iconSize: [26, 26],
                         iconAnchor: [13, 13]
                     })
@@ -3602,24 +3725,24 @@
                 const sn = p.micros_sur_norte || [];
                 const sc = p.micros_sin_confirmar || (p.micros || []).filter(m => !ns.includes(m) && !sn.includes(m));
                 let lineasMicros = '';
-                if (ns.length) lineasMicros += `<div>➡️ Norte→Sur: <b>${ns.join(', ')}</b></div>`;
-                if (sn.length) lineasMicros += `<div>⬅️ Sur→Norte: <b>${sn.join(', ')}</b></div>`;
-                if (sc.length) lineasMicros += `<div style="color:#999;">❓ Sin confirmar: ${sc.join(', ')}</div>`;
+                if (ns.length) lineasMicros += `<div>?? Norte?Sur: <b>${ns.join(', ')}</b></div>`;
+                if (sn.length) lineasMicros += `<div>?? Sur?Norte: <b>${sn.join(', ')}</b></div>`;
+                if (sc.length) lineasMicros += `<div style="color:#999;">? Sin confirmar: ${sc.join(', ')}</div>`;
                 if (!lineasMicros) lineasMicros = '<div>Sin micros anotadas</div>';
 
                 marcador.bindPopup(
                     `<div style="font-family:Segoe UI,sans-serif;min-width:180px;">
-                        <div style="font-weight:700;margin-bottom:4px;">🚏 ${p.nombre}</div>
+                        <div style="font-weight:700;margin-bottom:4px;">?? ${p.nombre}</div>
                         <div style="font-size:0.82rem;color:#333;line-height:1.5;">${lineasMicros}</div>
                         ${p.nota ? `<div style="font-size:0.78rem;color:#666;margin-top:4px;">${p.nota}</div>` : ''}
                         <div style="display:flex;gap:6px;margin-top:9px;">
                             <button onclick="mapa.closePopup(); window.editarParadero('${p.id}')"
                                     style="flex:1;padding:7px;border:none;border-radius:8px;background:#00d4ff22;color:#0088aa;font-weight:700;cursor:pointer;font-size:0.76rem;">
-                                ✏️ Editar
+                                ?? Editar
                             </button>
                             <button onclick="mapa.closePopup(); window.borrarParadero('${p.id}')"
                                     style="padding:7px 10px;border:none;border-radius:8px;background:#ff444422;color:#cc2222;font-weight:700;cursor:pointer;font-size:0.76rem;">
-                                🗑️
+                                ???
                             </button>
                         </div>
                     </div>`
@@ -3643,7 +3766,7 @@
         let eventosCache = [];
         let eventosVistos = parseInt(localStorage.getItem('eventos_vistos_hasta') || '0');
 
-        const EVENTO_ICONOS = { llegada: '🏠', salida: '🚪', bateria: '🔋', panico: '🆘' };
+        const EVENTO_ICONOS = { llegada: '??', salida: '??', bateria: '??', panico: '??' };
 
         function toggleEventos() {
             const panel = document.getElementById('eventos-panel');
@@ -4222,7 +4345,7 @@
             if (reproductorIndex >= reproductorPuntos.length - 1) reproductorIndex = 0;
 
             reproductorPlaying = true;
-            document.getElementById('btn-play').textContent = '⏸';
+            document.getElementById('btn-play').textContent = '?';
 
             const velocidad = parseFloat(document.getElementById('reproductor-velocidad').value) || 5;
             const intervalo = Math.max(60, 300 / velocidad);
@@ -4240,7 +4363,7 @@
         function pausarReproduccion() {
             reproductorPlaying = false;
             const btn = document.getElementById('btn-play');
-            if (btn) btn.textContent = '▶';
+            if (btn) btn.textContent = '?';
             if (reproductorTimer) { clearInterval(reproductorTimer); reproductorTimer = null; }
         }
 
@@ -4278,8 +4401,8 @@
 
             toast.className = 'toast mostrar ' + (tipo === 'error' ? 'toast-error' : tipo === 'warning' ? 'toast-warning' : 'toast-success');
 
-            let icono = '✓';
-            if (tipo === 'error') icono = '✕';
+            let icono = '?';
+            if (tipo === 'error') icono = '?';
             if (tipo === 'warning') icono = '!';
 
             icon.innerHTML = icono;
@@ -4464,16 +4587,16 @@
             const cache = estadiaCache[id];
 
             // Si esta en movimiento, no tiene sentido hablar de estadia
-            if (d && d.velocidad > 3) return '<span style="color:var(--accent-cyan);">🚶 En movimiento</span>';
+            if (d && d.velocidad > 3) return '<span style="color:var(--accent-cyan);">?? En movimiento</span>';
 
             if (!cache) return '<span style="color:var(--text-muted);">Calculando...</span>';
 
             const tiempo = textoTiempoTranscurrido(cache.desde);
             if (cache.zonaNombre) {
-                const icono = cache.zonaTipo === 'casa' ? '🏠' : '💼';
+                const icono = cache.zonaTipo === 'casa' ? '??' : '??';
                 return `<span style="color:var(--accent-green);">${icono} ${cache.zonaNombre}</span> · hace ${tiempo}`;
             }
-            return `<span style="color:var(--text-secondary);">📍 Detenido</span> · hace ${tiempo}`;
+            return `<span style="color:var(--text-secondary);">?? Detenido</span> · hace ${tiempo}`;
         }
 
         function colorBateria(nivel) {
@@ -4515,7 +4638,7 @@
 
                 const bateria = parseInt(d.bateria);
                 const badgeBateria = (!isNaN(bateria) && bateria > 0)
-                    ? `<span class="device-bateria" style="color:${colorBateria(bateria)};">🔋 ${bateria}%</span>`
+                    ? `<span class="device-bateria" style="color:${colorBateria(bateria)};">?? ${bateria}%</span>`
                     : '';
 
                 const item = document.createElement('div');
@@ -4533,7 +4656,7 @@
                     <div class="device-meta">
                         <div class="device-status ${online ? 'online' : 'offline'}">${online ? 'Online' : 'Offline'}</div>
                         ${badgeBateria}
-                        <button class="device-borrar" title="Eliminar este dispositivo" onclick="borrarDispositivo('${id}', event)">✕</button>
+                        <button class="device-borrar" title="Eliminar este dispositivo" onclick="borrarDispositivo('${id}', event)">?</button>
                     </div>
                 `;
                 panel.appendChild(item);
@@ -4669,11 +4792,11 @@
 
             if (modoSeguimiento && dispositivoSeleccionado) {
                 const c = obtenerConfigDispositivo(dispositivoSeleccionado);
-                pildora.innerHTML = `🎯 Siguiendo a ${c.nombre} <span class="pildora-x">✕</span>`;
+                pildora.innerHTML = `?? Siguiendo a ${c.nombre} <span class="pildora-x">?</span>`;
                 pildora.classList.add('activa');
             } else if (dispositivoSeleccionado) {
                 const c = obtenerConfigDispositivo(dispositivoSeleccionado);
-                pildora.innerHTML = `📍 Seguir a ${c.nombre}`;
+                pildora.innerHTML = `?? Seguir a ${c.nombre}`;
                 pildora.classList.remove('activa');
             } else {
                 pildora.innerHTML = '';
@@ -4797,7 +4920,7 @@ function editarZona(index) {
         draggable: true,
         icon: L.divIcon({
             className: 'zona-edit-marker',
-            html: `<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ffaa00;box-shadow:0 0 14px #ffaa00;display:flex;align-items:center;justify-content:center;font-size:14px;">✋</div>`,
+            html: `<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ffaa00;box-shadow:0 0 14px #ffaa00;display:flex;align-items:center;justify-content:center;font-size:14px;">?</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14]
         })
@@ -4827,15 +4950,15 @@ function editarZona(index) {
     popup.style.top = '16px';
     popup.style.transform = 'translateX(-50%)';
     popup.innerHTML = `
-        <h4>✏️ Editar "${zona.nombre}"</h4>
+        <h4>?? Editar "${zona.nombre}"</h4>
         <div class="popup-coords">${zona.lat.toFixed(6)}, ${zona.lon.toFixed(6)}</div>
-        <div class="popup-hint">📍 Arrastra el pin naranja en el mapa para mover la zona</div>
+        <div class="popup-hint">?? Arrastra el pin naranja en el mapa para mover la zona</div>
         <input type="text" id="popup-nombre" value="${zona.nombre}">
         <input type="number" id="popup-radio" value="${zona.radio}" oninput="actualizarRadioEdicion(this.value)">
         <div class="popup-btns">
             <button class="popup-btn cancelar" onclick="window.cancelarEdicionZona()">Cancelar</button>
             <button class="popup-btn crear" onclick="window.guardarZonaEditada()">Guardar</button>
-            <button class="popup-btn" style="background:rgba(255,68,68,0.15);color:#ff6b6b;" onclick="window.eliminarZonaPopup()">🗑</button>
+            <button class="popup-btn" style="background:rgba(255,68,68,0.15);color:#ff6b6b;" onclick="window.eliminarZonaPopup()">??</button>
         </div>
     `;
 
@@ -4943,10 +5066,10 @@ window.eliminarZonaPopup = function() {
                 <input type="number" id="popup-radio" placeholder="Radio en metros" value="200">
                 <div class="popup-btns">
                     <button class="popup-btn cancelar" onclick="window.cerrarPopupZona()">Cancelar</button>
-                    <button class="popup-btn crear" onclick="window.crearZonaDesdeMapa(${latlng.lat}, ${latlng.lng})">🏠 Zona</button>
+                    <button class="popup-btn crear" onclick="window.crearZonaDesdeMapa(${latlng.lat}, ${latlng.lng})">?? Zona</button>
                 </div>
                 <button class="popup-btn" style="width:100%;margin-top:7px;background:rgba(255,170,0,0.15);color:#ffaa00;border:1px solid rgba(255,170,0,0.25);"
-                        onclick="window.crearParaderoDesdeMapa(${latlng.lat}, ${latlng.lng})">🚏 Paradero aquí</button>
+                        onclick="window.crearParaderoDesdeMapa(${latlng.lat}, ${latlng.lng})">?? Paradero aquí</button>
             `;
             
             const point = mapa.latLngToContainerPoint(latlng);
@@ -5140,12 +5263,12 @@ actualizarPildoraSeguimiento();
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(() => console.log('✅ Service worker registrado (PWA lista para instalar)'))
+                    .then(() => console.log('? Service worker registrado (PWA lista para instalar)'))
                     .catch(e => console.log('No se pudo registrar el service worker', e));
             });
         }
 
-        console.log('✅ GPS Tracker cargado correctamente');
+        console.log('? GPS Tracker cargado correctamente');
     </script>
 </body>
 </html>

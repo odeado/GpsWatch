@@ -1195,6 +1195,11 @@
             border: 0; border-radius: 0; margin: 0;
         }
         body.mapa-expandido #mapa { height: 100% !important; border-radius: 0; }
+        .buscador-direccion { transition: opacity .6s ease, visibility .6s ease; }
+        body.mapa-expandido.buscador-oculto .buscador-direccion {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+        .mapa-oscuro-tiles { filter: invert(1) hue-rotate(180deg) brightness(.75); }
     </style>
 <base target="_blank">
 </head>
@@ -1767,14 +1772,15 @@
 
         // Mapa base CLARO (CartoDB Voyager - mucho mas visible)
         const capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
             subdomains: 'abcd'
         }).addTo(mapa);
 
         // Mapa oscuro alternativo
         const capaOscura = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            className: 'mapa-oscuro-tiles',
             maxZoom: 19,
             subdomains: 'abcd'
         });
@@ -1843,11 +1849,27 @@
         const dispositivos = {};
         const marcadores = {};
         const rutas = {};
+        let temporizadorBuscador;
+        function mostrarBuscadorTemporal() {
+            clearTimeout(temporizadorBuscador);
+            document.body.classList.remove('buscador-oculto');
+            if (!document.body.classList.contains('mapa-expandido')) return;
+            temporizadorBuscador = setTimeout(() => {
+                const buscador = document.getElementById('buscador-direccion');
+                if (!buscador.contains(document.activeElement)) document.body.classList.add('buscador-oculto');
+            }, 4000);
+        }
+        const tarjetaMapa = document.querySelector('.map-card');
+        tarjetaMapa.addEventListener('pointerdown', mostrarBuscadorTemporal);
+        tarjetaMapa.addEventListener('pointermove', mostrarBuscadorTemporal);
+        document.getElementById('buscador-direccion').addEventListener('focusin', mostrarBuscadorTemporal);
+        document.getElementById('buscador-direccion').addEventListener('focusout', mostrarBuscadorTemporal);
         function alternarPantallaMapa() {
             const expandido = document.body.classList.toggle('mapa-expandido');
             const boton = document.getElementById('btn-expandir-mapa');
             boton.textContent = expandido ? '✕ Salir del mapa completo' : '⛶ Pantalla completa';
             boton.setAttribute('aria-expanded', String(expandido));
+            mostrarBuscadorTemporal();
             requestAnimationFrame(() => mapa.invalidateSize({ pan: false }));
         }
         document.addEventListener('keydown', event => {

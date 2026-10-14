@@ -1766,14 +1766,14 @@
         }).setView([-23.6, -70.4], 13);
 
         // Mapa base CLARO (CartoDB Voyager - mucho mas visible)
-        const capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        const capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 19,
             subdomains: 'abcd'
         }).addTo(mapa);
 
         // Mapa oscuro alternativo
-        const capaOscura = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        const capaOscura = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 19,
             subdomains: 'abcd'

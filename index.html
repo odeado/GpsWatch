@@ -1181,6 +1181,20 @@
             font-size: clamp(1rem, 3.5vw, 1.3rem);
             opacity: 0.92;
         }
+        .map-expandir {
+            position: absolute; bottom: max(28px, env(safe-area-inset-bottom));
+            right: max(12px, env(safe-area-inset-right)); z-index: 1000;
+            min-height: 44px; padding: 10px 14px; border-radius: 12px;
+            border: 1px solid var(--border); background: #101827; color: white;
+            cursor: pointer; font: inherit; font-size: 14px;
+        }
+        body.mapa-expandido { overflow: hidden !important; }
+        body.mapa-expandido .map-card {
+            position: fixed !important; inset: 0; width: 100%;
+            height: 100vh; height: 100dvh; z-index: 10000;
+            border: 0; border-radius: 0; margin: 0;
+        }
+        body.mapa-expandido #mapa { height: 100% !important; border-radius: 0; }
     </style>
 <base target="_blank">
 </head>
@@ -1340,6 +1354,7 @@
                     <div class="btn-brujula-flecha" id="btn-brujula-flecha">▲</div>
                 </div>
                 <div id="mapa"></div>
+                <button type="button" class="map-expandir" id="btn-expandir-mapa" aria-expanded="false" aria-controls="mapa" onclick="alternarPantallaMapa()">⛶ Pantalla completa</button>
             </div>
 
             <!-- Panel inferior: estadisticas, zonas, contactos, historial y reproductor de ruta -->
@@ -1404,9 +1419,6 @@
                             </div>
                             <button class="btn-dibujar borrar" id="btn-borrar-camino-manual" onclick="borrarCaminoManual()" style="display:none;">
                                 🗑️ Borrar camino dibujado
-                            </button>
-                            <button class="btn-dibujar" id="btn-corregir-tramo" onclick="iniciarCorreccionTramo()" style="display:none;background:rgba(255,102,170,0.1);border-color:rgba(255,102,170,0.3);color:#ff66aa;">
-                                🖊️ Corregir solo un tramo
                             </button>
 
                             <div class="micro-dibujo-controles" id="micro-dibujo-controles" style="display:none;">
@@ -1754,14 +1766,14 @@
         }).setView([-23.6, -70.4], 13);
 
         // Mapa base CLARO (CartoDB Voyager - mucho mas visible)
-        const capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
+        const capaBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 19,
             subdomains: 'abcd'
         }).addTo(mapa);
 
         // Mapa oscuro alternativo
-        const capaOscura = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_3nqj_1_448e717133eff00c38e26206', {
+        const capaOscura = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 19,
             subdomains: 'abcd'
@@ -1831,6 +1843,17 @@
         const dispositivos = {};
         const marcadores = {};
         const rutas = {};
+        function alternarPantallaMapa() {
+            const expandido = document.body.classList.toggle('mapa-expandido');
+            const boton = document.getElementById('btn-expandir-mapa');
+            boton.textContent = expandido ? '✕ Salir del mapa completo' : '⛶ Pantalla completa';
+            boton.setAttribute('aria-expanded', String(expandido));
+            requestAnimationFrame(() => mapa.invalidateSize({ pan: false }));
+        }
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && document.body.classList.contains('mapa-expandido')) alternarPantallaMapa();
+        });
+        window.addEventListener('resize', () => mapa.invalidateSize({ pan: false }));
         const polylines = {};
         const lineasDistancia = {};
         const zonas = JSON.parse(localStorage.getItem('zonas') || '[]');
@@ -2618,19 +2641,6 @@
             if (microActual && sentidoActual && !dibujandoCamino) verRecorridoMicro();
         });
 
-        // Correcciones puntuales: PARCHES chicos sobre una ruta base (Moovit o
-        // la aproximacion), para cuando la base ya es casi perfecta y solo un
-        // tramo esta mal - no hace falta redibujar todo el camino de nuevo,
-        // solo el pedazo que fallo. Se dibujan encima, en rosado, sin borrar
-        // la base de abajo.
-        let correccionesRutas = {};
-        db.ref('/rutas_correcciones').on('value', (snap) => {
-            correccionesRutas = snap.val() || {};
-            const microActual = document.getElementById('micro-ver')?.value;
-            const sentidoActual = document.getElementById('micro-ver-sentido')?.value;
-            if (microActual && sentidoActual && !dibujandoCamino) verRecorridoMicro();
-        });
-
         function toggleMicros() {
             const panel = document.getElementById('micros-panel');
             const icon = document.getElementById('icon-micros-toggle');
@@ -2774,31 +2784,25 @@
 
             const btnDibujar = document.getElementById('btn-dibujar-camino');
             const btnBorrarManual = document.getElementById('btn-borrar-camino-manual');
-            const btnCorregirTramo = document.getElementById('btn-corregir-tramo');
 
             if (!micro) {
                 cont.innerHTML = '';
                 btnDibujar.style.display = 'none';
                 btnBorrarManual.style.display = 'none';
-                btnCorregirTramo.style.display = 'none';
                 return;
             }
             if (!sentido) {
                 cont.innerHTML = '<div class="micro-fallo">Elige un sentido para ver el recorrido</div>';
                 btnDibujar.style.display = 'none';
                 btnBorrarManual.style.display = 'none';
-                btnCorregirTramo.style.display = 'none';
                 return;
             }
 
             btnDibujar.style.display = '';
-            btnCorregirTramo.style.display = 'none'; // solo se vuelve a mostrar si la rama Moovit/aproximada lo activa
 
             const contenedorContinuar = document.getElementById('botones-continuar-dibujo');
 
             // 1ra prioridad: camino dibujado a mano (el mas confiable, lo trazaste tu)
-            // Aca no aplican los parches: si ya dibujaste el camino completo a mano,
-            // "corregir un tramo" no tiene sentido, se edita el camino entero.
             const manual = rutasManuales[micro] && rutasManuales[micro][sentido];
             if (manual && manual.puntos && manual.puntos.length > 1) {
                 dibujarRecorridoManual(micro, sentido, manual.puntos);
@@ -2870,7 +2874,6 @@
         let marcadoresDibujoTmp = [];
         let clickMapaDibujoHandler = null;
         let dibujoInvertido = false; // true = se continua desde el inicio (hay que revertir al guardar)
-        let modoDibujoActual = 'completo'; // 'completo' = redibuja toda la ruta | 'correccion' = agrega un parche encima de la base
 
 
         
@@ -2960,7 +2963,6 @@
             if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
 
             dibujandoCamino = true;
-            modoDibujoActual = 'completo';
             dibujoInvertido = false;
             limpiarRecorrido();
             limpiarDibujoTemporal();
@@ -3007,46 +3009,6 @@
             mapa.on('click', clickMapaDibujoHandler);
         }
 
-        // Modo "parche": en vez de redibujar toda la ruta, solo se marca el
-        // tramo corto donde la base (Moovit o aproximacion) se equivoco. La
-        // base se deja dibujada de fondo (ya esta en el mapa, no se toca) para
-        // que sea facil ver donde exactamente hay que corregir.
-        function iniciarCorreccionTramo() {
-            const micro = document.getElementById('micro-ver').value;
-            const sentido = document.getElementById('micro-ver-sentido').value;
-            if (!micro || !sentido) { mostrarToast('Elige la micro y el sentido primero', 'error'); return; }
-
-            dibujandoCamino = true;
-            modoDibujoActual = 'correccion';
-            dibujoInvertido = false;
-            puntosDibujo = [];
-            limpiarDibujoTemporal();
-            // OJO: a diferencia del modo completo, aca NO se llama limpiarRecorrido()
-            // - la base (Moovit/aproximacion) se queda dibujada en el mapa a proposito,
-            // para poder marcar el parche justo al lado de donde esta el error.
-            redibujarTrazoDibujo();
-
-            document.getElementById('btn-dibujar-camino').style.display = 'none';
-            document.getElementById('btn-corregir-tramo').style.display = 'none';
-            document.getElementById('botones-continuar-dibujo').style.display = 'none';
-            document.getElementById('btn-borrar-camino-manual').style.display = 'none';
-            document.getElementById('micro-dibujo-controles').style.display = 'flex';
-
-            document.getElementById('micro-ver-resultado').innerHTML = `
-                <div class="micro-exito" style="margin-bottom:0;">
-                    🖊️ Modo corrección: la ruta base queda de fondo. Toca el mapa solo en el tramo que
-                    está mal, marcando el camino correcto. Cuando termines, toca "Guardar".
-                </div>
-            `;
-
-            desactivarSeguimiento();
-            clickMapaDibujoHandler = (e) => {
-                puntosDibujo.push([e.latlng.lat, e.latlng.lng]);
-                redibujarTrazoDibujo();
-            };
-            mapa.on('click', clickMapaDibujoHandler);
-        }
-
 
 
 
@@ -3064,28 +3026,20 @@
                 return;
             }
 
+            // Si veniamos "desde el inicio", el arreglo esta al reves; se revierte
+            // aqui para guardar en el orden real (norte->sur o el que corresponda).
+            const puntosAGuardar = dibujoInvertido ? puntosDibujo.slice().reverse() : puntosDibujo;
+
             try {
-                if (modoDibujoActual === 'correccion') {
-                    // Un parche mas, sin tocar la base ni las otras correcciones ya guardadas
-                    const id = 'corr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-                    await db.ref(`/rutas_correcciones/${micro}/${sentido}/${id}`).set({
-                        puntos: puntosDibujo,
-                        creado: Date.now()
-                    });
-                    mostrarToast('Corrección guardada ✅', 'success');
-                } else {
-                    // Camino completo: reemplaza el trazo entero de esta micro+sentido
-                    // Si veniamos "desde el inicio", el arreglo esta al reves; se revierte
-                    // aqui para guardar en el orden real (norte->sur o el que corresponda).
-                    const puntosAGuardar = dibujoInvertido ? puntosDibujo.slice().reverse() : puntosDibujo;
-                    await db.ref(`/rutas_manuales/${micro}/${sentido}`).set({
-                        puntos: puntosAGuardar,
-                        creado: Date.now()
-                    });
-                    mostrarToast('Camino guardado ✅', 'success');
-                }
+                await db.ref(`/rutas_manuales/${micro}/${sentido}`).set({
+                    puntos: puntosAGuardar,
+                    creado: Date.now()
+                });
+
+
+                mostrarToast('Camino guardado ✅', 'success');
             } catch (e) {
-                console.log('No se pudo guardar el dibujo', e);
+                console.log('No se pudo guardar el camino dibujado', e);
                 mostrarToast('No se pudo guardar', 'error');
             }
             terminarDibujoCamino();
@@ -3099,7 +3053,6 @@
         function terminarDibujoCamino() {
             dibujandoCamino = false;
             dibujoInvertido = false;
-            modoDibujoActual = 'completo';
             if (clickMapaDibujoHandler) { mapa.off('click', clickMapaDibujoHandler); clickMapaDibujoHandler = null; }
             limpiarDibujoTemporal();
             limpiarReferenciaDibujo();
@@ -3124,92 +3077,13 @@
 
         // Dibuja el recorrido REAL (datos de Moovit con coordenadas), en el
         // orden verdadero de las paradas - no es una aproximacion.
-        // Dibuja los parches de correccion guardados para esta micro+sentido,
-        // ENCIMA de la ruta base (Moovit o aproximacion), sin tocar la base.
-        // Devuelve el HTML de la lista (con boton de borrar cada uno) para
-        // mostrar debajo del resultado.
-        // Encuentra, dentro de una lista de puntos [lat,lon], el indice del
-        // punto mas cercano a 'objetivo'. Si el mas cercano igual queda a mas
-        // de 400m, se considera que no calza con esa ruta (devuelve -1) para
-        // no forzar un empalme en un lugar que no corresponde.
-        function indicePuntoMasCercano(puntos, objetivo) {
-            let mejorIdx = -1, mejorDist = Infinity;
-            puntos.forEach((p, i) => {
-                const d = mapa.distance(p, objetivo);
-                if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
-            });
-            return mejorDist <= 400 ? mejorIdx : -1;
-        }
-
-        // En vez de dibujar el parche AL LADO de la base (dos lineas juntas,
-        // confuso), esto reemplaza el tramo de la base mas cercano a cada
-        // extremo del parche - asi queda UNA sola linea continua que sigue
-        // la base y solo se desvia en el pedazo corregido.
-        function aplicarCorreccionesABase(puntosBase, correcciones) {
-            let resultado = puntosBase.slice();
-
-            Object.values(correcciones || {}).forEach(c => {
-                if (!c.puntos || c.puntos.length < 2) return;
-
-                let idxInicio = indicePuntoMasCercano(resultado, c.puntos[0]);
-                let idxFin = indicePuntoMasCercano(resultado, c.puntos[c.puntos.length - 1]);
-                if (idxInicio === -1 || idxFin === -1) return; // el parche no calza con esta base, se ignora
-
-                if (idxInicio > idxFin) { const t = idxInicio; idxInicio = idxFin; idxFin = t; }
-
-                resultado = [
-                    ...resultado.slice(0, idxInicio),
-                    ...c.puntos,
-                    ...resultado.slice(idxFin + 1)
-                ];
-            });
-
-            return resultado;
-        }
-
-        // Arma solo la lista de texto de correcciones aplicadas (con boton de
-        // borrar cada una) - el dibujo en si ya no es una capa aparte, ahora
-        // esta empalmado directo en la linea principal (ver aplicarCorreccionesABase).
-        function listaCorreccionesHTML(micro, sentido) {
-            const correcciones = (correccionesRutas[micro] && correccionesRutas[micro][sentido]) || {};
-            const ids = Object.keys(correcciones);
-            if (ids.length === 0) return '';
-
-            return `
-                <div style="margin-top:8px;">
-                    ${ids.map(id => `
-                        <div class="micro-paradero-linea" style="cursor:default;">
-                            <span style="color:#ff66aa;">🖊️ Corrección aplicada</span>
-                            <button onclick="borrarCorreccion('${micro}','${sentido}','${id}')"
-                                    style="margin-left:auto;background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.9rem;padding:2px 6px;">✕</button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        async function borrarCorreccion(micro, sentido, id) {
-            if (!confirm('¿Borrar esta corrección?')) return;
-            try {
-                await db.ref(`/rutas_correcciones/${micro}/${sentido}/${id}`).remove();
-                mostrarToast('Corrección eliminada', 'warning');
-            } catch (e) {
-                mostrarToast('No se pudo borrar', 'error');
-            }
-        }
-
         function dibujarRecorridoReal(micro, sentido, paradasRef) {
             const cont = document.getElementById('micro-ver-resultado');
             const ordenadas = paradasRef.slice().sort((a, b) => a.orden - b.orden);
             const puntos = ordenadas.map(p => [p.lat, p.lon]);
 
-            // Empalmar las correcciones guardadas: reemplazan el tramo de la
-            // base mas cercano a cada una, para que se vea UNA sola linea.
-            const correcciones = (correccionesRutas[micro] && correccionesRutas[micro][sentido]) || {};
-            const puntosFinal = aplicarCorreccionesABase(puntos, correcciones);
-
-            capaRecorrido = L.polyline(puntosFinal, {
-                color: '#00ff88', weight: 4, opacity: 0.8
+            capaRecorrido = L.polyline(puntos, {
+                color: '#00d4ff', weight: 4, opacity: 0.8
             }).addTo(mapa);
 
             // Puntitos chicos en cada parada real de Moovit
@@ -3240,11 +3114,8 @@
 
             desactivarSeguimiento();
             movimientoProgramatico = true;
-            mapa.fitBounds(L.polyline(puntosFinal).getBounds().pad(0.15));
+            mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.15));
             setTimeout(() => { movimientoProgramatico = false; }, 600);
-
-            const listaCorrecciones = listaCorreccionesHTML(micro, sentido);
-            document.getElementById('btn-corregir-tramo').style.display = '';
 
             const etiquetaSentido = sentido === 'norte_sur' ? 'Norte → Sur' : 'Sur → Norte';
             cont.innerHTML = `
@@ -3252,7 +3123,6 @@
                     ✅ Recorrido real (${etiquetaSentido}): ${ordenadas.length} paradas.
                     ${propios.length ? `<br>De esas, <b>${propios.length}</b> son paraderos tuyos confirmados (🚏 naranjo en el mapa).` : ''}
                 </div>
-                ${listaCorrecciones}
             `;
         }
 
@@ -3295,10 +3165,6 @@
             }
 
             if (puntosLinea.length > 1) {
-                // Empalmar correcciones guardadas para esta micro+sentido
-                const correcciones = (correccionesRutas[micro] && correccionesRutas[micro][sentido]) || {};
-                puntosLinea = aplicarCorreccionesABase(puntosLinea, correcciones);
-
                 capaRecorrido = L.polyline(puntosLinea, {
                     color: desvioSospechoso ? '#ff8844' : '#ffaa00',
                     weight: 4, opacity: porCalles ? 0.85 : 0.75,
@@ -3322,11 +3188,11 @@
             });
 
             desactivarSeguimiento();
-            if (puntosLinea.length === 1) {
-                moverMapa(puntosLinea[0], 16);
+            if (puntos.length === 1) {
+                moverMapa(puntos[0], 16);
             } else {
                 movimientoProgramatico = true;
-                mapa.fitBounds(L.polyline(puntosLinea).getBounds().pad(0.25));
+                mapa.fitBounds(L.polyline(puntos).getBounds().pad(0.25));
                 setTimeout(() => { movimientoProgramatico = false; }, 600);
             }
 
@@ -3334,7 +3200,7 @@
             if (desvioSospechoso) {
                 notaFinal = '⚠️ Este tramo dio una vuelta mucho más larga de lo esperado — probablemente porque esa calle tiene sentido único o giro prohibido ' +
                     'para un auto normal (una micro puede tener pistas/giros que un auto no tiene). ' +
-                    'Si sabes que en realidad es más directo, considera agregar un paradero justo en la curva, o corregir el tramo a mano abajo.';
+                    'Si sabes que en realidad es más directo, considera agregar un paradero justo en la curva para partir el tramo en dos y afinar el trazado.';
             } else if (porCalles) {
                 notaFinal = 'Camino trazado por calles reales entre tus paraderos confirmados. El ORDEN de las paradas sigue siendo una aproximación (la más cercana a la anterior).';
             } else if (rutasPorCallesActivas) {
@@ -3342,9 +3208,6 @@
             } else {
                 notaFinal = 'Rutas por calles desactivadas (🛣️ en el header) — mostrando línea recta.';
             }
-
-            const listaCorrecciones = listaCorreccionesHTML(micro, sentido);
-            document.getElementById('btn-corregir-tramo').style.display = '';
 
             cont.innerHTML = `
                 <div style="margin-bottom:7px;">La micro <b style="color:var(--accent-orange);">${micro}</b> (${etiquetaSentido}) pasa por ${lista.length} paradero${lista.length > 1 ? 's' : ''}:</div>
@@ -3354,7 +3217,6 @@
                         <span>${p.nombre}</span>
                     </div>`).join('')}
                 <div class="micro-nota-aprox" style="${desvioSospechoso ? 'color:#ff8844;' : ''}">${notaFinal}</div>
-                ${listaCorrecciones}
             `;
         }
 
